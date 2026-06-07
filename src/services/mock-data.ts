@@ -1,0 +1,207 @@
+import "server-only";
+import type { Carta, Articulo, Comanda } from "@/models";
+
+/**
+ * Datos MOCK para los módulos cuyo backend todavía es Work In Progress.
+ *
+ * Cuando TPI_Backend exponga los endpoints correspondientes, reemplazar estos
+ * datasets por llamadas reales en los services de cada dominio. La forma de los
+ * datos ya respeta los tipos de la capa de modelos.
+ */
+
+export const MOCK_CARTA: Carta = {
+  id: 1,
+  fechaDesde: "2026-01-01",
+  fechaHasta: null,
+  createdAt: "2026-01-01T00:00:00.000Z",
+  updatedAt: "2026-01-01T00:00:00.000Z",
+  deletedAt: null,
+  secciones: [
+    {
+      id: 1,
+      cartaId: 1,
+      nombre: "Entradas",
+      detalle: "Para comenzar",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+      deletedAt: null,
+      platos: [
+        {
+          id: 1,
+          seccionId: 1,
+          nombre: "Empanadas mendocinas (x3)",
+          precio: 3500,
+          detalle: "Carne cortada a cuchillo",
+          imagenId: null,
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+          deletedAt: null,
+        },
+        {
+          id: 2,
+          seccionId: 1,
+          nombre: "Tabla de fiambres",
+          precio: 8900,
+          detalle: "Selección regional para dos",
+          imagenId: null,
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+          deletedAt: null,
+        },
+      ],
+    },
+    {
+      id: 2,
+      cartaId: 1,
+      nombre: "Plato Principal",
+      detalle: null,
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+      deletedAt: null,
+      platos: [
+        {
+          id: 3,
+          seccionId: 2,
+          nombre: "Bife de chorizo con papas",
+          precio: 14500,
+          detalle: "350g con guarnición",
+          imagenId: null,
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+          deletedAt: null,
+        },
+      ],
+    },
+    {
+      id: 3,
+      cartaId: 1,
+      nombre: "Postre",
+      detalle: null,
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+      deletedAt: null,
+      platos: [],
+    },
+    {
+      id: 4,
+      cartaId: 1,
+      nombre: "Bebidas",
+      detalle: null,
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+      deletedAt: null,
+      platos: [
+        {
+          id: 4,
+          seccionId: 4,
+          nombre: "Gaseosa Cola 1L",
+          precio: 2500,
+          detalle: null,
+          imagenId: null,
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+          deletedAt: null,
+        },
+      ],
+    },
+  ],
+};
+
+export const MOCK_ARTICULOS: Articulo[] = [
+  {
+    id: 1,
+    nombre: "Gaseosa Cola 1L",
+    descripcion: "Botella individual",
+    esIngrediente: false,
+    cantidad: 1,
+    unidadMedida: "UNIDAD",
+    createdAt: "",
+    updatedAt: "",
+    deletedAt: null,
+    stock: {
+      id: 1,
+      articuloId: 1,
+      cantidad: 48,
+      minimo: 12,
+      createdAt: "",
+      updatedAt: "",
+      deletedAt: null,
+    },
+  },
+  {
+    id: 2,
+    nombre: "Papa",
+    descripcion: "Ingrediente para guarniciones",
+    esIngrediente: true,
+    cantidad: null,
+    unidadMedida: "KG",
+    createdAt: "",
+    updatedAt: "",
+    deletedAt: null,
+    stock: {
+      id: 2,
+      articuloId: 2,
+      cantidad: 8,
+      minimo: 10,
+      createdAt: "",
+      updatedAt: "",
+      deletedAt: null,
+    },
+  },
+];
+
+export const MOCK_PEDIDOS_DELIVERY: Comanda[] = [
+  {
+    id: 101,
+    empleadoId: null,
+    clienteId: 5,
+    estadoComanda: "EN_COCINA",
+    fechaSolicitud: "2026-06-06T12:30:00.000Z",
+    fechaEntrega: null,
+    createdAt: "2026-06-06T12:30:00.000Z",
+    updatedAt: "2026-06-06T12:30:00.000Z",
+    deletedAt: null,
+    cliente: {
+      id: 5,
+      usuarioId: 5,
+      createdAt: "",
+      updatedAt: "",
+      deletedAt: null,
+      usuario: {
+        id: 5,
+        correo: "lucia@example.com",
+        nombre: "Lucía",
+        apellido: "Fernández",
+        tipoDocumento: null,
+        documento: null,
+        nacimiento: null,
+        direccionId: null,
+        rol: "CLIENTE",
+        createdAt: "",
+        updatedAt: "",
+        deletedAt: null,
+      },
+    },
+    comandaAplicacion: {
+      id: 1,
+      comandaId: 101,
+      direccionId: 1,
+      createdAt: "",
+      updatedAt: "",
+      deletedAt: null,
+      direccion: {
+        id: 1,
+        barrio: "Centro",
+        calle: "San Martín",
+        manzanaPiso: null,
+        numeracion: "1234",
+        referencia: "Timbre 2",
+        casaDepto: "3B",
+        localidadId: 1,
+        createdAt: "",
+        updatedAt: "",
+        deletedAt: null,
+      },
+    },
+  },
+];

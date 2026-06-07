@@ -1,0 +1,25 @@
+{
+  "cookies": [
+    {
+      "name": "aroma_token",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiY29ycmVvIjoiYWRtaW5AYXJvbWFzLmNvbSIsInJvbElkIjoxLCJpYXQiOjE3ODA3ODI0MDAsImV4cCI6MTc4MDg2ODgwMH0.ue15y1ar13Q36vFYnQxzc3TNz3KsBYCoASdMtX85ZsM",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1780868800.97077,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "aroma_user",
+      "value": "%7B%22id%22%3A1%2C%22correo%22%3A%22admin%40aromas.com%22%2C%22rolId%22%3A1%2C%22personaId%22%3A1%2C%22createdAt%22%3A%222026-06-06T21%3A00%3A44.755Z%22%2C%22updatedAt%22%3A%222026-06-06T21%3A00%3A44.755Z%22%2C%22deletedAt%22%3Anull%7D",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1780868800.970841,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": []
+}
