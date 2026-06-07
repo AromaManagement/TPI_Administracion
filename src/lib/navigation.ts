@@ -74,7 +74,7 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/cocina",
     icon: ChefHat,
     description: "Estado de los platos en preparación.",
-    status: "wip",
+    status: "ready",
     group: "Operación",
   },
 ];

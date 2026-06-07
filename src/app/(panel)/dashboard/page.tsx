@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import {
@@ -10,8 +11,12 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { NAV_ITEMS } from "@/lib/navigation";
+import { getCurrentUser } from "@/lib/session";
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const user = await getCurrentUser();
+  if (user?.rol === "COCINERO") redirect("/cocina");
+
   const modules = NAV_ITEMS.filter((i) => i.href !== "/dashboard");
 
   return (

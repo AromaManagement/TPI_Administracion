@@ -81,3 +81,43 @@ export const ESTADOS_PLATO = [
 ] as const;
 
 export type EstadoPlato = (typeof ESTADOS_PLATO)[number];
+
+// ---------------------------------------------------------------------------
+// Tipos específicos del módulo de cocina
+// ---------------------------------------------------------------------------
+
+/** Estado individual de un DetalleComanda en cocina. */
+export type EstadoDetalle = "SIN_ASIGNAR" | "EN_PROCESO" | "LISTO";
+
+/**
+ * Detalle de comanda enriquecido para la vista de cocina.
+ * Incluye campos desnormalizados (platoNombre, empleadoNombre) para el mock;
+ * con el backend real vendrán de los joins.
+ * Nota: el campo `estado` es gestionado por el mock y deberá agregarse al
+ * schema Prisma cuando se conecte el backend.
+ */
+export interface CocinaDetalle {
+  id: number;
+  comandaId: number;
+  platoId: number;
+  platoNombre: string;
+  empleadoId: number | null;
+  empleadoNombre: string | null;
+  estado: EstadoDetalle;
+  precioUnitario: number;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+}
+
+/** Comanda enriquecida para la vista de cocina. */
+export interface CocinaComanda {
+  id: number;
+  clienteNombre: string | null;
+  estadoComanda: EstadoComanda;
+  fechaSolicitud: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+  detalles: CocinaDetalle[];
+}

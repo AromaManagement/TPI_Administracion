@@ -41,7 +41,8 @@ function redirectAndClear(url: URL): NextResponse {
  * - Sin sesión → redirige a /login.
  * - Cookie malformado (formato anterior al refactor) → limpia cookies y redirige a /login.
  * - Con sesión pero rol CLIENTE o REPARTIDOR → limpia cookies y redirige a /login.
- * - Con sesión y rol ADMIN/COCINERO → deja pasar.
+ * - Con sesión y rol ADMIN → deja pasar.
+ * - Con sesión y rol COCINERO → solo puede acceder a /cocina; cualquier otra ruta redirige a /cocina.
  */
 export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -67,11 +68,18 @@ export function proxy(req: NextRequest) {
     if (user.rol && !PANEL_ROLES.includes(user.rol)) {
       return redirectAndClear(new URL("/login", req.url));
     }
+
+    // Cocinero solo puede acceder a /cocina
+    if (user.rol === "COCINERO" && pathname !== "/cocina") {
+      return NextResponse.redirect(new URL("/cocina", req.url));
+    }
   }
 
   // Usuario autenticado intentando acceder a /login → redirigir al panel
   if (isAuthenticated && isPublic) {
-    return NextResponse.redirect(new URL("/dashboard", req.url));
+    const user = parseUserCookie(req.cookies.get(USER_COOKIE)?.value);
+    const home = user?.rol === "COCINERO" ? "/cocina" : "/dashboard";
+    return NextResponse.redirect(new URL(home, req.url));
   }
 
   return NextResponse.next();
