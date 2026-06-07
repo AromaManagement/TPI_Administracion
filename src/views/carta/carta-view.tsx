@@ -3,11 +3,13 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import {
+  AlertTriangleIcon,
   ImageIcon,
   Pencil,
   Plus,
   Trash2,
   UtensilsCrossed,
+  XIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import Image from "next/image";
@@ -35,7 +37,7 @@ import {
   deletePlatoAction,
 } from "@/controllers/carta.controller";
 import { formatCurrency } from "@/lib/format";
-import type { ActionResult, Carta, Seccion, Plato } from "@/models";
+import type { ActionResult, ArticuloStock, Carta, Seccion, Plato } from "@/models";
 
 // ---------------------------------------------------------------------------
 // Image resize helper (runs in the browser via Canvas API)
@@ -163,6 +165,132 @@ function SeccionDialog({
 }
 
 // ---------------------------------------------------------------------------
+// IngredientesPicker
+// ---------------------------------------------------------------------------
+
+interface IngItem {
+  articuloId: number;
+  nombre: string;
+  cantidad: number;
+  unidadMedida: string | null;
+}
+
+function IngredientesPicker({
+  value,
+  onChange,
+  articulos,
+}: {
+  value: IngItem[];
+  onChange: (v: IngItem[]) => void;
+  articulos: ArticuloStock[];
+}) {
+  const [selectedId, setSelectedId] = useState<string>("");
+  const [qty, setQty] = useState<string>("");
+
+  const available = articulos.filter(
+    (a) => !value.some((v) => v.articuloId === a.id),
+  );
+
+  function handleAdd() {
+    const id = parseInt(selectedId, 10);
+    const cantidad = parseFloat(qty);
+    if (!id || isNaN(cantidad) || cantidad <= 0) return;
+    const art = articulos.find((a) => a.id === id);
+    if (!art) return;
+    onChange([
+      ...value,
+      { articuloId: id, nombre: art.nombre, cantidad, unidadMedida: art.unidadMedida ?? null },
+    ]);
+    setSelectedId("");
+    setQty("");
+  }
+
+  function handleRemove(articuloId: number) {
+    onChange(value.filter((v) => v.articuloId !== articuloId));
+  }
+
+  function handleQtyChange(articuloId: number, raw: string) {
+    const n = parseFloat(raw);
+    if (isNaN(n) || n < 0) return;
+    onChange(value.map((v) => (v.articuloId === articuloId ? { ...v, cantidad: n } : v)));
+  }
+
+  return (
+    <div className="space-y-2">
+      {/* Add row */}
+      <div className="flex gap-2">
+        <select
+          className="border-input bg-background flex h-9 flex-1 rounded-md border px-3 py-1 text-sm shadow-sm"
+          value={selectedId}
+          onChange={(e) => setSelectedId(e.target.value)}
+        >
+          <option value="">Seleccionar artículo…</option>
+          {available.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.nombre}{a.unidadMedida ? ` (${a.unidadMedida})` : ""}
+            </option>
+          ))}
+        </select>
+        <Input
+          className="w-24"
+          type="number"
+          min="0"
+          step="0.01"
+          placeholder="Cant."
+          value={qty}
+          onChange={(e) => setQty(e.target.value)}
+        />
+        <Button type="button" size="sm" variant="outline" onClick={handleAdd} disabled={!selectedId || !qty}>
+          <Plus className="size-4" />
+        </Button>
+      </div>
+
+      {/* Current list */}
+      {value.length > 0 && (
+        <ul className="divide-y rounded-md border text-sm">
+          {value.map((ing) => {
+            const art = articulos.find((a) => a.id === ing.articuloId);
+            const stockOk = art ? art.cantidad >= ing.cantidad : true;
+            return (
+              <li key={ing.articuloId} className="flex items-center gap-2 px-3 py-1.5">
+                <span className="min-w-0 flex-1 truncate">{ing.nombre}</span>
+                <Input
+                  className="h-7 w-20 text-xs"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={ing.cantidad}
+                  onChange={(e) => handleQtyChange(ing.articuloId, e.target.value)}
+                />
+                <span className="text-muted-foreground w-10 shrink-0 text-xs">
+                  {ing.unidadMedida ?? ""}
+                </span>
+                {!stockOk && (
+                  <AlertTriangleIcon className="size-3.5 shrink-0 text-amber-500" />
+                )}
+                <button
+                  type="button"
+                  className="text-muted-foreground hover:text-destructive"
+                  onClick={() => handleRemove(ing.articuloId)}
+                >
+                  <XIcon className="size-3.5" />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {available.length === 0 && value.length === articulos.length && (
+        <p className="text-muted-foreground text-xs">
+          Todos los artículos de stock ya están en la receta.
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // PlatoDialog
 // ---------------------------------------------------------------------------
 
@@ -171,11 +299,13 @@ function PlatoDialog({
   onOpenChange,
   plato,
   seccionId,
+  articulos,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   plato: Plato | null;
   seccionId: number | null;
+  articulos: ArticuloStock[];
 }) {
   const isEdit = Boolean(plato);
   const action = plato
@@ -193,10 +323,28 @@ function PlatoDialog({
   const [imageChanged, setImageChanged] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Ingredient state: initialize from plato (if editing)
+  const [ingredientes, setIngredientes] = useState<IngItem[]>(() =>
+    (plato?.ingredientes ?? []).map((ing) => ({
+      articuloId: ing.articuloId,
+      nombre: ing.nombre,
+      cantidad: ing.cantidad,
+      unidadMedida: ing.unidadMedida,
+    })),
+  );
+
   // Reset state when dialog opens with a different plato
   useEffect(() => {
     setPreview(plato?.imagen?.imagenSi ?? null);
     setImageChanged(false);
+    setIngredientes(
+      (plato?.ingredientes ?? []).map((ing) => ({
+        articuloId: ing.articuloId,
+        nombre: ing.nombre,
+        cantidad: ing.cantidad,
+        unidadMedida: ing.unidadMedida,
+      })),
+    );
   }, [plato, open]);
 
   useEffect(() => {
@@ -227,7 +375,7 @@ function PlatoDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="sm:max-w-lg">
         <form action={formAction}>
           {/* Pass seccionId as hidden field for create */}
           {!isEdit && (
@@ -236,6 +384,14 @@ function PlatoDialog({
           {/* Image is resized client-side; send data URL + changed flag */}
           <input type="hidden" name="imagenDataUrl" value={imageChanged ? (preview ?? "") : ""} />
           <input type="hidden" name="imagenChanged" value={imageChanged ? "1" : "0"} />
+          {/* Ingredients serialized as JSON */}
+          <input
+            type="hidden"
+            name="ingredientesJson"
+            value={JSON.stringify(
+              ingredientes.map((i) => ({ articuloId: i.articuloId, cantidad: i.cantidad })),
+            )}
+          />
 
           <DialogHeader>
             <DialogTitle>{isEdit ? "Editar plato" : "Nuevo plato"}</DialogTitle>
@@ -244,7 +400,7 @@ function PlatoDialog({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
+          <div className="max-h-[60vh] space-y-4 overflow-y-auto py-4 pr-1">
             {/* Nombre */}
             <div className="space-y-2">
               <Label htmlFor="p-nombre">Nombre</Label>
@@ -292,6 +448,18 @@ function PlatoDialog({
                 rows={2}
               />
             </div>
+
+            {/* Ingredientes */}
+            {articulos.length > 0 && (
+              <div className="space-y-2">
+                <Label>Ingredientes del stock</Label>
+                <IngredientesPicker
+                  value={ingredientes}
+                  onChange={setIngredientes}
+                  articulos={articulos}
+                />
+              </div>
+            )}
 
             {/* Imagen */}
             <div className="space-y-2">
@@ -378,6 +546,8 @@ function PlatoCard({
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const sinStock = plato.disponible === false;
+
   return (
     <div className="group flex items-start gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/30">
       {/* Image */}
@@ -401,10 +571,23 @@ function PlatoCard({
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium">{plato.nombre}</p>
+            <div className="flex items-center gap-1.5">
+              <p className="truncate text-sm font-medium">{plato.nombre}</p>
+              {sinStock && (
+                <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-medium text-red-700 dark:bg-red-900/40 dark:text-red-300">
+                  <AlertTriangleIcon className="size-2.5" />
+                  Sin stock
+                </span>
+              )}
+            </div>
             {plato.detalle && (
               <p className="text-muted-foreground mt-0.5 line-clamp-2 text-xs">
                 {plato.detalle}
+              </p>
+            )}
+            {plato.ingredientes && plato.ingredientes.length > 0 && (
+              <p className="text-muted-foreground mt-0.5 text-xs">
+                {plato.ingredientes.map((i) => i.nombre).join(", ")}
               </p>
             )}
           </div>
@@ -438,6 +621,7 @@ function PlatoCard({
 
 function SeccionCard({
   seccion,
+  articulos,
   onEditSeccion,
   onDeleteSeccion,
   onAddPlato,
@@ -445,12 +629,15 @@ function SeccionCard({
   onDeletePlato,
 }: {
   seccion: Seccion;
+  articulos: ArticuloStock[];
   onEditSeccion: () => void;
   onDeleteSeccion: () => void;
   onAddPlato: () => void;
   onEditPlato: (plato: Plato) => void;
   onDeletePlato: (plato: Plato) => void;
 }) {
+  const sinStockCount = (seccion.platos ?? []).filter((p) => p.disponible === false).length;
+
   return (
     <div className="bg-background flex flex-col rounded-lg border">
       {/* Header */}
@@ -461,6 +648,11 @@ function SeccionCard({
             <Badge variant="outline" className="text-xs">
               {seccion.platos?.length ?? 0}
             </Badge>
+            {sinStockCount > 0 && (
+              <Badge variant="destructive" className="text-xs">
+                {sinStockCount} sin stock
+              </Badge>
+            )}
           </div>
           {seccion.detalle && (
             <p className="text-muted-foreground mt-0.5 text-xs">
@@ -528,7 +720,7 @@ function SeccionCard({
 // CartaView (main)
 // ---------------------------------------------------------------------------
 
-export function CartaView({ carta }: { carta: Carta }) {
+export function CartaView({ carta, articulos }: { carta: Carta; articulos: ArticuloStock[] }) {
   // Separate open/data state so setters are stable references (avoids
   // infinite useEffect loops caused by inline arrow onOpenChange props)
   const [seccionOpen, setSeccionOpen] = useState(false);
@@ -601,6 +793,7 @@ export function CartaView({ carta }: { carta: Carta }) {
             <SeccionCard
               key={seccion.id}
               seccion={seccion}
+              articulos={articulos}
               onEditSeccion={() => openEditSeccion(seccion)}
               onDeleteSeccion={() => handleDeleteSeccion(seccion)}
               onAddPlato={() => openNewPlato(seccion.id)}
@@ -618,10 +811,12 @@ export function CartaView({ carta }: { carta: Carta }) {
       />
 
       <PlatoDialog
+        key={editingPlato?.id ?? "new"}
         open={platoOpen}
         onOpenChange={setPlatoOpen}
         plato={editingPlato}
         seccionId={platoSeccionId}
+        articulos={articulos}
       />
     </>
   );

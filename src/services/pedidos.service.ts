@@ -1,7 +1,7 @@
 import "server-only";
 import fs from "fs/promises";
 import path from "path";
-import type { PedidoDelivery, EstadoRecorrido } from "@/models";
+import type { PedidoDelivery, EstadoRecorrido, RecorridoPedido } from "@/models";
 import { cocinaService } from "./cocina.service";
 
 // ---------------------------------------------------------------------------

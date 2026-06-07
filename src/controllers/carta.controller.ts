@@ -19,6 +19,25 @@ function revalidate() {
   revalidatePath("/carta");
 }
 
+function parseIngredientes(
+  formData: FormData,
+): { articuloId: number; cantidad: number }[] {
+  const raw = formData.get("ingredientesJson");
+  if (typeof raw !== "string" || !raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return (parsed as { articuloId: number; cantidad: number }[]).filter(
+      (item) =>
+        typeof item?.articuloId === "number" &&
+        typeof item?.cantidad === "number" &&
+        item.cantidad > 0,
+    );
+  } catch {
+    return [];
+  }
+}
+
 function extractImagen(formData: FormData): { changed: boolean; dataUrl: string | null } {
   const changed = formData.get("imagenChanged") === "1";
   if (!changed) return { changed: false, dataUrl: null };
@@ -98,7 +117,8 @@ export async function createPlatoAction(
 
   try {
     const { dataUrl } = extractImagen(formData);
-    const plato = await cartaService.createPlato({ ...parsed.data, imagenSi: dataUrl });
+    const ingredientes = parseIngredientes(formData);
+    const plato = await cartaService.createPlato({ ...parsed.data, imagenSi: dataUrl, ingredientes });
     revalidate();
     return { ok: true, data: plato, message: "Plato creado correctamente." };
   } catch (error) {
@@ -120,9 +140,11 @@ export async function updatePlatoAction(
 
   try {
     const { changed, dataUrl } = extractImagen(formData);
+    const ingredientes = parseIngredientes(formData);
     const plato = await cartaService.updatePlato(id, {
       ...parsed.data,
       ...(changed ? { imagenSi: dataUrl } : {}),
+      ingredientes,
     });
     revalidate();
     return { ok: true, data: plato, message: "Plato actualizado correctamente." };

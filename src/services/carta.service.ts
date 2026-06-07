@@ -2,6 +2,8 @@ import "server-only";
 import fs from "fs/promises";
 import path from "path";
 import type { Carta, Seccion, Plato, Imagen } from "@/models";
+import { recetaService } from "./receta.service";
+import { stockService } from "./stock.service";
 
 // ---------------------------------------------------------------------------
 // Shared local file store. Both TPI_Administracion and TPI_Carta read from the
@@ -83,12 +85,18 @@ export interface UpdateSeccionInput {
   detalle?: string | null;
 }
 
+export interface IngredienteInput {
+  articuloId: number;
+  cantidad: number;
+}
+
 export interface CreatePlatoInput {
   seccionId: number;
   nombre: string;
   precio: number;
   detalle?: string | null;
   imagenSi?: string | null;
+  ingredientes?: IngredienteInput[];
 }
 
 export interface UpdatePlatoInput {
@@ -96,6 +104,7 @@ export interface UpdatePlatoInput {
   precio?: number;
   detalle?: string | null;
   imagenSi?: string | null;
+  ingredientes?: IngredienteInput[];
 }
 
 // ---------------------------------------------------------------------------
@@ -104,8 +113,40 @@ export interface UpdatePlatoInput {
 
 export const cartaService = {
   getCarta: async (): Promise<Carta> => {
-    const { carta } = await load();
-    return clone(carta);
+    const [d, platoArticulos, articulos] = await Promise.all([
+      load(),
+      recetaService.getAllPlatoArticulos(),
+      stockService.getArticulos(),
+    ]);
+
+    const carta = clone(d.carta) as Carta;
+    const artMap = new Map(articulos.map((a) => [a.id, a]));
+
+    for (const seccion of carta.secciones ?? []) {
+      for (const plato of seccion.platos ?? []) {
+        const receta = platoArticulos.filter((pa) => pa.platoId === plato.id);
+        if (receta.length === 0) {
+          plato.ingredientes = [];
+          plato.disponible = null;
+        } else {
+          plato.ingredientes = receta.map((pa) => {
+            const art = artMap.get(pa.articuloId);
+            return {
+              articuloId: pa.articuloId,
+              nombre: art?.nombre ?? `Artículo #${pa.articuloId}`,
+              cantidad: pa.cantidad,
+              unidadMedida: art?.unidadMedida ?? null,
+              stockActual: art?.cantidad ?? 0,
+            };
+          });
+          plato.disponible = plato.ingredientes.every(
+            (ing) => ing.stockActual >= ing.cantidad,
+          );
+        }
+      }
+    }
+
+    return carta;
   },
 
   // --- Secciones ---
@@ -171,6 +212,11 @@ export const cartaService = {
     seccion.platos = [...(seccion.platos ?? []), plato];
     d.carta.updatedAt = ts();
     await persist(d);
+
+    if (data.ingredientes && data.ingredientes.length > 0) {
+      await recetaService.setReceta(plato.id, data.ingredientes);
+    }
+
     return clone(plato);
   },
 
@@ -198,6 +244,11 @@ export const cartaService = {
       };
       d.carta.updatedAt = ts();
       await persist(d);
+
+      if (data.ingredientes !== undefined) {
+        await recetaService.setReceta(id, data.ingredientes);
+      }
+
       return clone(seccion.platos![idx]);
     }
     throw new Error("Plato no encontrado.");
@@ -211,6 +262,7 @@ export const cartaService = {
         seccion.platos!.splice(idx, 1);
         d.carta.updatedAt = ts();
         await persist(d);
+        await recetaService.deleteReceta(id);
         return;
       }
     }
