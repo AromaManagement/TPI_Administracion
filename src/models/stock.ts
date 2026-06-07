@@ -24,16 +24,12 @@ export const TIPOS_MOV: Record<TipoMov, string> = {
   MERMA: "Merma",
 };
 
-/**
- * Modelo `articulo` del schema Prisma.
- * Un artículo puede ser un ingrediente o un producto vendible.
- */
+/** Modelo `articulo` del schema Prisma. */
 export interface Articulo extends Timestamps {
   id: number;
   nombre: string;
   descripcion: string | null;
   esIngrediente: boolean;
-  cantidad: number | null;
   unidadMedida: UnidadMedida | null;
   stock?: Stock | null;
 }
@@ -45,6 +41,7 @@ export interface Stock extends Timestamps {
   cantidad: number;
   minimo: number | null;
   articulo?: Articulo;
+  movimientos?: MovimientoStock[];
 }
 
 /** Modelo `movimiento_stock` del schema Prisma. */
@@ -55,4 +52,24 @@ export interface MovimientoStock extends Timestamps {
   cantidad: number;
   fecha: string;
   stock?: Stock;
+}
+
+/**
+ * Vista desnormalizada para el módulo de stock:
+ * artículo + stock actual + últimos movimientos.
+ * Construida por el service; no existe en Prisma como tabla.
+ */
+export interface ArticuloStock {
+  id: number;
+  nombre: string;
+  descripcion: string | null;
+  esIngrediente: boolean;
+  unidadMedida: UnidadMedida | null;
+  stockId: number;
+  cantidad: number;
+  minimo: number | null;
+  movimientos: MovimientoStock[];
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
 }

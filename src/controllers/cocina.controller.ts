@@ -25,3 +25,9 @@ export async function completarDetalle(detalleId: number): Promise<void> {
   if (!user) throw new Error("No autenticado.");
   await cocinaService.completarDetalle(detalleId);
 }
+
+export async function simularPedido() {
+  const user = await getCurrentUser();
+  if (!user) throw new Error("No autenticado.");
+  return cocinaService.simularPedido();
+}

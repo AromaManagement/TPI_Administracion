@@ -120,4 +120,31 @@ export interface CocinaComanda {
   updatedAt: string;
   deletedAt: string | null;
   detalles: CocinaDetalle[];
+  /** Null para comandas de salón; distinto de null para pedidos de delivery. */
+  comandaAplicacionId: number | null;
+  /** Dirección formateada para mostrar en cocina y pedidos. */
+  direccion: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Tipos del módulo de pedidos delivery
+// ---------------------------------------------------------------------------
+
+export interface RecorridoPedido {
+  id: number;
+  estado: EstadoRecorrido;
+  fechaIn: string | null;
+  fechaFin: string | null;
+}
+
+/** Vista denormalizada de un pedido delivery para la UI de administración. */
+export interface PedidoDelivery {
+  comandaId: number;
+  comandaAplicacionId: number;
+  clienteNombre: string;
+  fechaSolicitud: string;
+  direccion: string;
+  detalles: { platoNombre: string; precioUnitario: number }[];
+  total: number;
+  recorrido: RecorridoPedido | null;
 }

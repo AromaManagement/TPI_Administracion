@@ -58,7 +58,7 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/stock",
     icon: Boxes,
     description: "Artículos, ingredientes y movimientos de stock.",
-    status: "wip",
+    status: "ready",
     group: "Administración",
   },
   {
@@ -66,7 +66,7 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/pedidos",
     icon: Truck,
     description: "Seguimiento de pedidos de la app de delivery.",
-    status: "wip",
+    status: "ready",
     group: "Operación",
   },
   {

@@ -17,12 +17,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { MapPin, PlayIcon } from "lucide-react";
 import type { CocinaComanda, CocinaDetalle, EstadoComanda } from "@/models";
 import { formatDateTime } from "@/lib/format";
 import {
   asignarDetalle,
   completarDetalle,
   desasignarDetalle,
+  simularPedido,
 } from "@/controllers/cocina.controller";
 
 // ---------------------------------------------------------------------------
@@ -180,6 +182,12 @@ function ComandaCard({
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-2 pt-0">
+        {comanda.direccion && (
+          <p className="text-muted-foreground flex items-center gap-1 text-xs">
+            <MapPin className="size-3 shrink-0" />
+            <span>{comanda.direccion}</span>
+          </p>
+        )}
         {comanda.detalles.map((det) => (
           <DetalleRow
             key={det.id}
@@ -261,6 +269,13 @@ export function CocinaView({ initial }: { initial: CocinaComanda[] }) {
     startTransition(async () => { await completarDetalle(detalleId); });
   }
 
+  function handleSimular() {
+    startTransition(async () => {
+      const nueva = await simularPedido();
+      setComandas((prev) => [...prev, nueva]);
+    });
+  }
+
   return (
     <>
       {pendingConfirm && (
@@ -271,6 +286,19 @@ export function CocinaView({ initial }: { initial: CocinaComanda[] }) {
           onCancel={() => setPendingConfirm(null)}
         />
       )}
+
+      <div className="mb-4 flex justify-end">
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={isPending}
+          onClick={handleSimular}
+          title="Simula un pedido entrante desde la app de delivery"
+        >
+          <PlayIcon className="size-4" />
+          Simular pedido
+        </Button>
+      </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {COLUMNS.map(({ estado, label, color }) => {
