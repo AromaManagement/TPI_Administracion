@@ -37,6 +37,30 @@ export const localidadSchema = z.object({
     .max(150, "El nombre no puede tener más de 150 caracteres."),
 });
 
+export const seccionSchema = z.object({
+  nombre: z
+    .string()
+    .min(1, "El nombre es requerido.")
+    .max(150, "El nombre no puede tener más de 150 caracteres."),
+  detalle: z.string().max(500).optional(),
+});
+
+export const seccionUpdateSchema = seccionSchema.partial();
+
+export const platoSchema = z.object({
+  seccionId: z.coerce.number().int().positive("Sección inválida."),
+  nombre: z
+    .string()
+    .min(1, "El nombre es requerido.")
+    .max(150, "El nombre no puede tener más de 150 caracteres."),
+  precio: z.coerce
+    .number({ message: "El precio debe ser un número." })
+    .min(0, "El precio debe ser mayor o igual a 0."),
+  detalle: z.string().max(1000).optional(),
+});
+
+export const platoUpdateSchema = platoSchema.partial({ seccionId: true, nombre: true, precio: true });
+
 export type LoginValues = z.infer<typeof loginSchema>;
 export type UsuarioValues = z.infer<typeof usuarioSchema>;
 export type LocalidadValues = z.infer<typeof localidadSchema>;

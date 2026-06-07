@@ -50,7 +50,7 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/carta",
     icon: UtensilsCrossed,
     description: "Secciones, platos y precios de la carta.",
-    status: "wip",
+    status: "ready",
     group: "Administración",
   },
   {

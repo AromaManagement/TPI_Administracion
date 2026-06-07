@@ -2,8 +2,6 @@ import "server-only";
 import { api } from "@/lib/api";
 import type { Rol, Usuario } from "@/models";
 
-/** SERVICE de usuarios. Habla con /api/users (CRUD protegido por JWT). */
-
 export interface CreateUsuarioInput {
   correo: string;
   contrasena: string;
@@ -15,14 +13,14 @@ export interface CreateUsuarioInput {
 export type UpdateUsuarioInput = Partial<CreateUsuarioInput>;
 
 export const usuarioService = {
-  getAll: () => api.get<Usuario[]>("/users"),
+  getAll: () => api.get<Usuario[]>("/usuarios"),
 
-  getById: (id: number) => api.get<Usuario>(`/users/${id}`),
+  getById: (id: number) => api.get<Usuario>(`/usuarios/${id}`),
 
-  create: (data: CreateUsuarioInput) => api.post<Usuario>("/users", data),
+  create: (data: CreateUsuarioInput) => api.post<Usuario>("/usuarios", data),
 
   update: (id: number, data: UpdateUsuarioInput) =>
-    api.put<Usuario>(`/users/${id}`, data),
+    api.put<Usuario>(`/usuarios/${id}`, data),
 
-  remove: (id: number) => api.delete<Usuario>(`/users/${id}`),
+  remove: (id: number) => api.delete<Usuario>(`/usuarios/${id}`),
 };

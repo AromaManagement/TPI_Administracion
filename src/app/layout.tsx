@@ -17,6 +17,7 @@ export const metadata: Metadata = {
   title: "Aromas de Viña · Administración",
   description:
     "Panel de administración del restaurante Aromas de Viña (Mendoza).",
+  icons: { icon: "/icon.svg", shortcut: "/icon.svg" },
 };
 
 export default function RootLayout({

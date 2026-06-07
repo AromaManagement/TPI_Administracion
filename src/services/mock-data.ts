@@ -1,5 +1,5 @@
 import "server-only";
-import type { Carta, Articulo, Comanda } from "@/models";
+import type { Articulo, Comanda } from "@/models";
 
 /**
  * Datos MOCK para los módulos cuyo backend todavía es Work In Progress.
@@ -8,104 +8,6 @@ import type { Carta, Articulo, Comanda } from "@/models";
  * datasets por llamadas reales en los services de cada dominio. La forma de los
  * datos ya respeta los tipos de la capa de modelos.
  */
-
-export const MOCK_CARTA: Carta = {
-  id: 1,
-  fechaDesde: "2026-01-01",
-  fechaHasta: null,
-  createdAt: "2026-01-01T00:00:00.000Z",
-  updatedAt: "2026-01-01T00:00:00.000Z",
-  deletedAt: null,
-  secciones: [
-    {
-      id: 1,
-      cartaId: 1,
-      nombre: "Entradas",
-      detalle: "Para comenzar",
-      createdAt: "2026-01-01T00:00:00.000Z",
-      updatedAt: "2026-01-01T00:00:00.000Z",
-      deletedAt: null,
-      platos: [
-        {
-          id: 1,
-          seccionId: 1,
-          nombre: "Empanadas mendocinas (x3)",
-          precio: 3500,
-          detalle: "Carne cortada a cuchillo",
-          imagenId: null,
-          createdAt: "2026-01-01T00:00:00.000Z",
-          updatedAt: "2026-01-01T00:00:00.000Z",
-          deletedAt: null,
-        },
-        {
-          id: 2,
-          seccionId: 1,
-          nombre: "Tabla de fiambres",
-          precio: 8900,
-          detalle: "Selección regional para dos",
-          imagenId: null,
-          createdAt: "2026-01-01T00:00:00.000Z",
-          updatedAt: "2026-01-01T00:00:00.000Z",
-          deletedAt: null,
-        },
-      ],
-    },
-    {
-      id: 2,
-      cartaId: 1,
-      nombre: "Plato Principal",
-      detalle: null,
-      createdAt: "2026-01-01T00:00:00.000Z",
-      updatedAt: "2026-01-01T00:00:00.000Z",
-      deletedAt: null,
-      platos: [
-        {
-          id: 3,
-          seccionId: 2,
-          nombre: "Bife de chorizo con papas",
-          precio: 14500,
-          detalle: "350g con guarnición",
-          imagenId: null,
-          createdAt: "2026-01-01T00:00:00.000Z",
-          updatedAt: "2026-01-01T00:00:00.000Z",
-          deletedAt: null,
-        },
-      ],
-    },
-    {
-      id: 3,
-      cartaId: 1,
-      nombre: "Postre",
-      detalle: null,
-      createdAt: "2026-01-01T00:00:00.000Z",
-      updatedAt: "2026-01-01T00:00:00.000Z",
-      deletedAt: null,
-      platos: [],
-    },
-    {
-      id: 4,
-      cartaId: 1,
-      nombre: "Bebidas",
-      detalle: null,
-      createdAt: "2026-01-01T00:00:00.000Z",
-      updatedAt: "2026-01-01T00:00:00.000Z",
-      deletedAt: null,
-      platos: [
-        {
-          id: 4,
-          seccionId: 4,
-          nombre: "Gaseosa Cola 1L",
-          precio: 2500,
-          detalle: null,
-          imagenId: null,
-          createdAt: "2026-01-01T00:00:00.000Z",
-          updatedAt: "2026-01-01T00:00:00.000Z",
-          deletedAt: null,
-        },
-      ],
-    },
-  ],
-};
 
 export const MOCK_ARTICULOS: Articulo[] = [
   {

@@ -1,9 +1,5 @@
 import "server-only";
-import { MOCK_CARTA, MOCK_ARTICULOS, MOCK_PEDIDOS_DELIVERY } from "./mock-data";
-
-export const cartaService = {
-  getActiva: async () => MOCK_CARTA,
-};
+import { MOCK_ARTICULOS, MOCK_PEDIDOS_DELIVERY } from "./mock-data";
 
 export const stockService = {
   getArticulos: async () => MOCK_ARTICULOS,
