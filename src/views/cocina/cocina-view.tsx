@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -17,15 +18,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { MapPin, PlayIcon } from "lucide-react";
+import { MapPin } from "lucide-react";
 import type { CocinaComanda, CocinaDetalle, EstadoComanda } from "@/models";
 import { formatDateTime } from "@/lib/format";
-import {
-  asignarDetalle,
-  completarDetalle,
-  desasignarDetalle,
-  simularPedido,
-} from "@/controllers/cocina.controller";
+import { tomarComanda, completarComanda } from "@/controllers/cocina.controller";
 
 // ---------------------------------------------------------------------------
 // Column config
@@ -37,29 +33,15 @@ const COLUMNS: { estado: EstadoComanda; label: string; color: string }[] = [
   { estado: "LISTO",       label: "Listo",        color: "bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-400" },
 ];
 
-const DETALLE_BADGE: Record<string, string> = {
-  SIN_ASIGNAR: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300",
-  EN_PROCESO:  "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
-  LISTO:       "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
-};
-
-const DETALLE_LABEL: Record<string, string> = {
-  SIN_ASIGNAR: "Sin asignar",
-  EN_PROCESO:  "En proceso",
-  LISTO:       "Listo",
-};
-
 // ---------------------------------------------------------------------------
 // ConfirmListoDialog
 // ---------------------------------------------------------------------------
 
 function ConfirmListoDialog({
-  platoNombre,
   open,
   onConfirm,
   onCancel,
 }: {
-  platoNombre: string;
   open: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -68,16 +50,14 @@ function ConfirmListoDialog({
     <Dialog open={open} onOpenChange={(o) => { if (!o) onCancel(); }}>
       <DialogContent showCloseButton={false}>
         <DialogHeader>
-          <DialogTitle>¿Marcar como listo?</DialogTitle>
+          <DialogTitle>¿Marcar como lista?</DialogTitle>
           <DialogDescription>
-            Estás por marcar <strong>{platoNombre}</strong> como listo.
+            Todos los platos de esta comanda están listos para servir.
             Esta acción no se puede deshacer.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="outline" onClick={onCancel}>
-            Cancelar
-          </Button>
+          <Button variant="outline" onClick={onCancel}>Cancelar</Button>
           <Button onClick={onConfirm}>Confirmar</Button>
         </DialogFooter>
       </DialogContent>
@@ -89,65 +69,13 @@ function ConfirmListoDialog({
 // DetalleRow
 // ---------------------------------------------------------------------------
 
-function DetalleRow({
-  detalle,
-  onAsignar,
-  onDesasignar,
-  onRequestCompletar,
-  pending,
-}: {
-  detalle: CocinaDetalle;
-  onAsignar: (id: number) => void;
-  onDesasignar: (id: number) => void;
-  onRequestCompletar: (id: number, nombre: string) => void;
-  pending: boolean;
-}) {
+function DetalleRow({ detalle }: { detalle: CocinaDetalle }) {
   return (
     <div className="flex items-start justify-between gap-2 rounded-md border bg-card px-3 py-2 text-sm">
       <div className="min-w-0 flex-1">
         <p className="font-medium leading-tight">{detalle.platoNombre}</p>
         {detalle.empleadoNombre && (
-          <p className="text-muted-foreground text-xs mt-0.5">{detalle.empleadoNombre}</p>
-        )}
-        <span
-          className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${DETALLE_BADGE[detalle.estado]}`}
-        >
-          {DETALLE_LABEL[detalle.estado]}
-        </span>
-      </div>
-
-      <div className="flex flex-col gap-1 shrink-0">
-        {detalle.estado === "SIN_ASIGNAR" && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 text-xs"
-            disabled={pending}
-            onClick={() => onAsignar(detalle.id)}
-          >
-            Asignarme
-          </Button>
-        )}
-        {detalle.estado === "EN_PROCESO" && (
-          <>
-            <Button
-              size="sm"
-              className="h-7 text-xs"
-              disabled={pending}
-              onClick={() => onRequestCompletar(detalle.id, detalle.platoNombre)}
-            >
-              Listo
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-7 text-xs text-muted-foreground"
-              disabled={pending}
-              onClick={() => onDesasignar(detalle.id)}
-            >
-              Desasignar
-            </Button>
-          </>
+          <p className="text-muted-foreground mt-0.5 text-xs">{detalle.empleadoNombre}</p>
         )}
       </div>
     </div>
@@ -160,15 +88,13 @@ function DetalleRow({
 
 function ComandaCard({
   comanda,
-  onAsignar,
-  onDesasignar,
+  onTomar,
   onRequestCompletar,
   pending,
 }: {
   comanda: CocinaComanda;
-  onAsignar: (id: number) => void;
-  onDesasignar: (id: number) => void;
-  onRequestCompletar: (id: number, nombre: string) => void;
+  onTomar: (id: number) => void;
+  onRequestCompletar: (id: number) => void;
   pending: boolean;
 }) {
   return (
@@ -181,7 +107,11 @@ function ComandaCard({
           </span>
         </CardTitle>
       </CardHeader>
+
       <CardContent className="flex flex-col gap-2 pt-0">
+        {comanda.clienteNombre && (
+          <p className="text-muted-foreground text-xs">{comanda.clienteNombre}</p>
+        )}
         {comanda.direccion && (
           <p className="text-muted-foreground flex items-center gap-1 text-xs">
             <MapPin className="size-3 shrink-0" />
@@ -189,16 +119,35 @@ function ComandaCard({
           </p>
         )}
         {comanda.detalles.map((det) => (
-          <DetalleRow
-            key={det.id}
-            detalle={det}
-            onAsignar={onAsignar}
-            onDesasignar={onDesasignar}
-            onRequestCompletar={onRequestCompletar}
-            pending={pending}
-          />
+          <DetalleRow key={det.id} detalle={det} />
         ))}
       </CardContent>
+
+      {(comanda.estadoComanda === "SIN_ASIGNAR" || comanda.estadoComanda === "EN_COCINA") && (
+        <CardFooter className="pt-0">
+          {comanda.estadoComanda === "SIN_ASIGNAR" && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full h-8 text-xs"
+              disabled={pending}
+              onClick={() => onTomar(comanda.id)}
+            >
+              Tomar comanda
+            </Button>
+          )}
+          {comanda.estadoComanda === "EN_COCINA" && (
+            <Button
+              size="sm"
+              className="w-full h-8 text-xs"
+              disabled={pending}
+              onClick={() => onRequestCompletar(comanda.id)}
+            >
+              Marcar lista
+            </Button>
+          )}
+        </CardFooter>
+      )}
     </Card>
   );
 }
@@ -207,98 +156,41 @@ function ComandaCard({
 // CocinaView
 // ---------------------------------------------------------------------------
 
-type PendingConfirm = { detalleId: number; platoNombre: string } | null;
-
 export function CocinaView({ initial }: { initial: CocinaComanda[] }) {
   const [comandas, setComandas] = useState<CocinaComanda[]>(initial);
   const [isPending, startTransition] = useTransition();
-  const [pendingConfirm, setPendingConfirm] = useState<PendingConfirm>(null);
+  const [confirmId, setConfirmId] = useState<number | null>(null);
 
-  function deriveEstado(detalles: CocinaDetalle[]): EstadoComanda {
-    if (detalles.length === 0) return "SIN_ASIGNAR";
-    if (detalles.every((d) => d.estado === "LISTO")) return "LISTO";
-    if (detalles.some((d) => d.estado !== "SIN_ASIGNAR")) return "EN_COCINA";
-    return "SIN_ASIGNAR";
-  }
-
-  function handleAsignar(detalleId: number) {
+  function handleTomar(comandaId: number) {
     setComandas((prev) =>
-      prev.map((c) => {
-        const newDetalles = c.detalles.map((d) =>
-          d.id === detalleId
-            ? { ...d, estado: "EN_PROCESO" as const, empleadoNombre: "Yo" }
-            : d
-        );
-        return { ...c, detalles: newDetalles, estadoComanda: deriveEstado(newDetalles) };
-      })
+      prev.map((c) =>
+        c.id === comandaId ? { ...c, estadoComanda: "EN_COCINA" as const } : c,
+      ),
     );
-    startTransition(async () => { await asignarDetalle(detalleId); });
-  }
-
-  function handleDesasignar(detalleId: number) {
-    setComandas((prev) =>
-      prev.map((c) => {
-        const newDetalles = c.detalles.map((d) =>
-          d.id === detalleId
-            ? { ...d, estado: "SIN_ASIGNAR" as const, empleadoId: null, empleadoNombre: null }
-            : d
-        );
-        return { ...c, detalles: newDetalles, estadoComanda: deriveEstado(newDetalles) };
-      })
-    );
-    startTransition(async () => { await desasignarDetalle(detalleId); });
-  }
-
-  function handleRequestCompletar(detalleId: number, platoNombre: string) {
-    setPendingConfirm({ detalleId, platoNombre });
+    startTransition(async () => { await tomarComanda(comandaId); });
   }
 
   function handleConfirmCompletar() {
-    if (!pendingConfirm) return;
-    const { detalleId } = pendingConfirm;
-    setPendingConfirm(null);
-
+    if (confirmId === null) return;
+    const id = confirmId;
+    setConfirmId(null);
     setComandas((prev) =>
-      prev.map((c) => {
-        const newDetalles = c.detalles.map((d) =>
-          d.id === detalleId ? { ...d, estado: "LISTO" as const } : d
-        );
-        return { ...c, detalles: newDetalles, estadoComanda: deriveEstado(newDetalles) };
-      })
+      prev.map((c) =>
+        c.id === id ? { ...c, estadoComanda: "LISTO" as const } : c,
+      ),
     );
-    startTransition(async () => { await completarDetalle(detalleId); });
-  }
-
-  function handleSimular() {
-    startTransition(async () => {
-      const nueva = await simularPedido();
-      setComandas((prev) => [...prev, nueva]);
-    });
+    startTransition(async () => { await completarComanda(id); });
   }
 
   return (
     <>
-      {pendingConfirm && (
+      {confirmId !== null && (
         <ConfirmListoDialog
           open={true}
-          platoNombre={pendingConfirm.platoNombre}
           onConfirm={handleConfirmCompletar}
-          onCancel={() => setPendingConfirm(null)}
+          onCancel={() => setConfirmId(null)}
         />
       )}
-
-      <div className="mb-4 flex justify-end">
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={isPending}
-          onClick={handleSimular}
-          title="Simula un pedido entrante desde la app de delivery"
-        >
-          <PlayIcon className="size-4" />
-          Simular pedido
-        </Button>
-      </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {COLUMNS.map(({ estado, label, color }) => {
@@ -323,9 +215,8 @@ export function CocinaView({ initial }: { initial: CocinaComanda[] }) {
                     <ComandaCard
                       key={c.id}
                       comanda={c}
-                      onAsignar={handleAsignar}
-                      onDesasignar={handleDesasignar}
-                      onRequestCompletar={handleRequestCompletar}
+                      onTomar={handleTomar}
+                      onRequestCompletar={setConfirmId}
                       pending={isPending}
                     />
                   ))

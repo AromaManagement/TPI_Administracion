@@ -1,142 +1,100 @@
 import "server-only";
-import fs from "fs/promises";
-import path from "path";
-import type { PedidoDelivery, EstadoRecorrido, RecorridoPedido } from "@/models";
-import { cocinaService } from "./cocina.service";
+import { api } from "@/lib/api";
+import type { PedidoDelivery, EstadoComanda } from "@/models";
 
 // ---------------------------------------------------------------------------
-// File store for recorridos. Replace each method with fetch() when the
-// backend is ready.
+// Shape del backend (sin joins a plato/empleado — ver cocina.service.ts)
 // ---------------------------------------------------------------------------
 
-const DATA_PATH = path.resolve(process.cwd(), "..", "mock-data", "pedidos.json");
-
-interface RecorridoRecord {
+interface BackendDetalle {
   id: number;
-  comandaAplicacionId: number;
-  estado: EstadoRecorrido;
-  fechaIn: string | null;
-  fechaFin: string | null;
-  createdAt: string;
-  updatedAt: string;
+  platoId: number;
+  precioUnitario: string | number;
   deletedAt: string | null;
 }
 
-interface PedidosData {
-  recorridos: RecorridoRecord[];
-  nextIds: { recorrido: number };
+interface BackendDireccion {
+  barrio: string | null;
+  calle: string | null;
+  numeracion: string | null;
+  referencia: string | null;
 }
 
-let _cache: PedidosData | null = null;
-
-async function load(): Promise<PedidosData> {
-  if (_cache) return _cache;
-  try {
-    const raw = await fs.readFile(DATA_PATH, "utf-8");
-    _cache = JSON.parse(raw) as PedidosData;
-    return _cache;
-  } catch {
-    _cache = { recorridos: [], nextIds: { recorrido: 1 } };
-    await save(_cache);
-    return _cache;
-  }
+interface BackendComanda {
+  id: number;
+  estadoComanda: string | null;
+  fechaSolicitud: string;
+  repartidorId: number | null;
+  direccionId: number | null;
+  cliente: { nombre: string; apellido: string } | null;
+  detalles: BackendDetalle[];
+  direccion: BackendDireccion | null;
 }
 
-async function save(data: PedidosData): Promise<void> {
-  await fs.mkdir(path.dirname(DATA_PATH), { recursive: true });
-  await fs.writeFile(DATA_PATH, JSON.stringify(data, null, 2), "utf-8");
+// ---------------------------------------------------------------------------
+// Mappers
+// ---------------------------------------------------------------------------
+
+function formatDireccion(d: BackendDireccion | null): string {
+  if (!d) return "Sin dirección";
+  return [d.calle, d.numeracion, d.barrio].filter(Boolean).join(", ") || "Sin dirección";
 }
 
-function ts() { return new Date().toISOString(); }
-function today() { return new Date().toISOString().slice(0, 10); }
+function toPedido(bc: BackendComanda): PedidoDelivery {
+  const detalles = bc.detalles
+    .filter((d) => !d.deletedAt)
+    .map((d) => ({
+      // El backend no incluye plato.nombre en el select actual
+      platoNombre: `Plato #${d.platoId}`,
+      precioUnitario: Number(d.precioUnitario),
+    }));
+
+  return {
+    comandaId: bc.id,
+    clienteNombre: bc.cliente
+      ? `${bc.cliente.nombre} ${bc.cliente.apellido}`
+      : "Cliente",
+    fechaSolicitud: bc.fechaSolicitud,
+    direccion: formatDireccion(bc.direccion),
+    detalles,
+    total: detalles.reduce((sum, d) => sum + d.precioUnitario, 0),
+    estadoComanda: (bc.estadoComanda ?? "LISTO") as EstadoComanda,
+    repartidorId: bc.repartidorId,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Service
-// ---------------------------------------------------------------------------
+//
+async function fetchPorEstado(estado: EstadoComanda): Promise<BackendComanda[]> {
+  return api.get<BackendComanda[]>(`/comandas/estado/${estado}`);
+}
+
+// Pedidos delivery: LISTO (listos para despacho) + EN_CAMINO + ENTREGADO
+const ESTADOS_DELIVERY: EstadoComanda[] = ["LISTO", "EN_CAMINO", "ENTREGADO"];
 
 export const pedidosService = {
-  /**
-   * Returns all delivery comandas that are LISTO, joined with their latest
-   * active recorrido (if any).
-   */
   getPedidos: async (): Promise<PedidoDelivery[]> => {
-    const [comandas, pd] = await Promise.all([cocinaService.getCocina(), load()]);
-
-    const deliveryComandas = comandas.filter(
-      (c) => c.estadoComanda === "LISTO" && c.comandaAplicacionId != null
-    );
-
-    return deliveryComandas.map((c) => {
-      const recorridoRecord = pd.recorridos
-        .filter((r) => r.comandaAplicacionId === c.comandaAplicacionId && !r.deletedAt)
-        .sort((a, b) => b.id - a.id)[0] ?? null;
-
-      const total = c.detalles.reduce((sum, d) => sum + d.precioUnitario, 0);
-
-      return {
-        comandaId: c.id,
-        comandaAplicacionId: c.comandaAplicacionId!,
-        clienteNombre: c.clienteNombre ?? "Cliente",
-        fechaSolicitud: c.fechaSolicitud,
-        direccion: c.direccion ?? "Sin dirección",
-        detalles: c.detalles.map((d) => ({
-          platoNombre: d.platoNombre,
-          precioUnitario: d.precioUnitario,
-        })),
-        total,
-        recorrido: recorridoRecord
-          ? {
-              id: recorridoRecord.id,
-              estado: recorridoRecord.estado,
-              fechaIn: recorridoRecord.fechaIn,
-              fechaFin: recorridoRecord.fechaFin,
-            }
-          : null,
-      };
-    });
+    const results = await Promise.all(ESTADOS_DELIVERY.map(fetchPorEstado));
+    return results
+      .flat()
+      .sort(
+        (a, b) =>
+          new Date(a.fechaSolicitud).getTime() -
+          new Date(b.fechaSolicitud).getTime(),
+      )
+      .map(toPedido);
   },
 
-  /**
-   * Start a delivery: creates an EN_CAMINO recorrido for the given
-   * comandaAplicacionId. Returns the real recorrido ID.
-   */
-  despachar: async (comandaAplicacionId: number): Promise<RecorridoPedido> => {
-    const d = await load();
-    const now = ts();
-    const id = d.nextIds.recorrido++;
-    const rec: RecorridoRecord = {
-      id,
-      comandaAplicacionId,
-      estado: "EN_CAMINO",
-      fechaIn: today(),
-      fechaFin: null,
-      createdAt: now,
-      updatedAt: now,
-      deletedAt: null,
-    };
-    d.recorridos.push(rec);
-    await save(d);
-    return { id: rec.id, estado: rec.estado, fechaIn: rec.fechaIn, fechaFin: rec.fechaFin };
+  despachar: async (comandaId: number): Promise<void> => {
+    await api.patch(`/comandas/${comandaId}/estado`, { nuevoEstado: "EN_CAMINO" });
   },
 
-  /** Mark the recorrido as ENTREGADO and set fechaFin. */
-  confirmarEntrega: async (recorridoId: number): Promise<void> => {
-    const d = await load();
-    const rec = d.recorridos.find((r) => r.id === recorridoId);
-    if (!rec) throw new Error(`Recorrido ${recorridoId} no encontrado.`);
-    rec.estado = "ENTREGADO";
-    rec.fechaFin = today();
-    rec.updatedAt = ts();
-    await save(d);
+  confirmarEntrega: async (comandaId: number): Promise<void> => {
+    await api.patch(`/comandas/${comandaId}/estado`, { nuevoEstado: "ENTREGADO" });
   },
 
-  /** Cancel the recorrido. */
-  cancelarRecorrido: async (recorridoId: number): Promise<void> => {
-    const d = await load();
-    const rec = d.recorridos.find((r) => r.id === recorridoId);
-    if (!rec) throw new Error(`Recorrido ${recorridoId} no encontrado.`);
-    rec.estado = "CANCELADO";
-    rec.updatedAt = ts();
-    await save(d);
+  cancelar: async (comandaId: number): Promise<void> => {
+    await api.patch(`/comandas/${comandaId}/estado`, { nuevoEstado: "CANCELADO" });
   },
 };

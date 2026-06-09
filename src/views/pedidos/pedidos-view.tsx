@@ -11,12 +11,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import type { PedidoDelivery, EstadoRecorrido } from "@/models";
+import type { PedidoDelivery, EstadoComanda } from "@/models";
 import { formatDateTime } from "@/lib/format";
 import {
   despacharPedido,
   confirmarEntrega,
-  cancelarRecorrido,
+  cancelarPedido,
 } from "@/controllers/pedidos.controller";
 
 // ---------------------------------------------------------------------------
@@ -26,27 +26,31 @@ import {
 type ColumnaEstado = "pendiente" | "en_camino" | "finalizado";
 
 function getColumna(p: PedidoDelivery): ColumnaEstado {
-  if (!p.recorrido || p.recorrido.estado === "PENDIENTE") return "pendiente";
-  if (p.recorrido.estado === "EN_CAMINO") return "en_camino";
-  return "finalizado";
+  if (p.estadoComanda === "EN_CAMINO") return "en_camino";
+  if (p.estadoComanda === "ENTREGADO" || p.estadoComanda === "CANCELADO") return "finalizado";
+  return "pendiente";
 }
 
-const ESTADO_BADGE: Record<EstadoRecorrido, string> = {
-  PENDIENTE:  "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300",
-  EN_CAMINO:  "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
-  ENTREGADO:  "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
-  CANCELADO:  "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
+const ESTADO_BADGE: Partial<Record<EstadoComanda, string>> = {
+  LISTO:     "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300",
+  EN_CAMINO: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
+  ENTREGADO: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
+  CANCELADO: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
 };
 
-const ESTADO_LABEL: Record<EstadoRecorrido, string> = {
-  PENDIENTE: "Pendiente",
+const ESTADO_LABEL: Partial<Record<EstadoComanda, string>> = {
+  LISTO:     "Listo para despacho",
   EN_CAMINO: "En camino",
   ENTREGADO: "Entregado",
   CANCELADO: "Cancelado",
 };
 
 function formatPeso(n: number) {
-  return new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n);
+  return new Intl.NumberFormat("es-AR", {
+    style: "currency",
+    currency: "ARS",
+    maximumFractionDigits: 0,
+  }).format(n);
 }
 
 // ---------------------------------------------------------------------------
@@ -67,21 +71,17 @@ function PedidoCard({
   pending: boolean;
 }) {
   const columna = getColumna(pedido);
+  const badgeClass = ESTADO_BADGE[pedido.estadoComanda];
+  const badgeLabel = ESTADO_LABEL[pedido.estadoComanda];
 
   return (
     <Card className="flex flex-col">
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center justify-between gap-2 text-sm font-semibold">
           <span>Pedido #{pedido.comandaId}</span>
-          {pedido.recorrido ? (
-            <span
-              className={`rounded-full px-2 py-0.5 text-xs font-medium ${ESTADO_BADGE[pedido.recorrido.estado]}`}
-            >
-              {ESTADO_LABEL[pedido.recorrido.estado]}
-            </span>
-          ) : (
-            <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300">
-              Listo para despacho
+          {badgeClass && badgeLabel && (
+            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${badgeClass}`}>
+              {badgeLabel}
             </span>
           )}
         </CardTitle>
@@ -118,7 +118,7 @@ function PedidoCard({
               size="sm"
               className="flex-1 h-8 text-xs"
               disabled={pending}
-              onClick={() => onDespachar(pedido.comandaAplicacionId)}
+              onClick={() => onDespachar(pedido.comandaId)}
             >
               <TruckIcon className="size-3.5" />
               Despachar
@@ -130,7 +130,7 @@ function PedidoCard({
                 size="sm"
                 className="flex-1 h-8 text-xs"
                 disabled={pending}
-                onClick={() => onConfirmar(pedido.recorrido!.id)}
+                onClick={() => onConfirmar(pedido.comandaId)}
               >
                 <CheckCircleIcon className="size-3.5" />
                 Entregado
@@ -140,7 +140,7 @@ function PedidoCard({
                 variant="outline"
                 className="h-8 text-xs text-destructive hover:text-destructive"
                 disabled={pending}
-                onClick={() => onCancelar(pedido.recorrido!.id)}
+                onClick={() => onCancelar(pedido.comandaId)}
               >
                 <XCircleIcon className="size-3.5" />
                 Cancelar
@@ -157,7 +157,12 @@ function PedidoCard({
 // PedidosView
 // ---------------------------------------------------------------------------
 
-const COLUMNAS: { key: ColumnaEstado; label: string; color: string; icon: React.ElementType }[] = [
+const COLUMNAS: {
+  key: ColumnaEstado;
+  label: string;
+  color: string;
+  icon: React.ElementType;
+}[] = [
   { key: "pendiente",  label: "Listos para despacho", color: "bg-yellow-500/10 border-yellow-500/30 text-yellow-700 dark:text-yellow-400", icon: PackageIcon },
   { key: "en_camino",  label: "En camino",            color: "bg-blue-500/10 border-blue-500/30 text-blue-700 dark:text-blue-400",         icon: TruckIcon },
   { key: "finalizado", label: "Finalizados",          color: "bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-400",      icon: CheckCircleIcon },
@@ -167,53 +172,37 @@ export function PedidosView({ initial }: { initial: PedidoDelivery[] }) {
   const [pedidos, setPedidos] = useState<PedidoDelivery[]>(initial);
   const [isPending, startTransition] = useTransition();
 
-  function handleDespachar(comandaAplicacionId: number) {
-    const tempId = Date.now();
-    const fechaIn = new Date().toISOString().slice(0, 10);
+  function handleDespachar(comandaId: number) {
     setPedidos((prev) =>
       prev.map((p) =>
-        p.comandaAplicacionId === comandaAplicacionId
-          ? { ...p, recorrido: { id: tempId, estado: "EN_CAMINO", fechaIn, fechaFin: null } }
-          : p
-      )
+        p.comandaId === comandaId ? { ...p, estadoComanda: "EN_CAMINO" as const } : p,
+      ),
     );
-    startTransition(async () => {
-      const real = await despacharPedido(comandaAplicacionId);
-      setPedidos((prev) =>
-        prev.map((p) =>
-          p.recorrido?.id === tempId ? { ...p, recorrido: real } : p
-        )
-      );
-    });
+    startTransition(async () => { await despacharPedido(comandaId); });
   }
 
-  function handleConfirmar(recorridoId: number) {
-    const today = new Date().toISOString().slice(0, 10);
+  function handleConfirmar(comandaId: number) {
     setPedidos((prev) =>
       prev.map((p) =>
-        p.recorrido?.id === recorridoId
-          ? { ...p, recorrido: { ...p.recorrido!, estado: "ENTREGADO", fechaFin: today } }
-          : p
-      )
+        p.comandaId === comandaId ? { ...p, estadoComanda: "ENTREGADO" as const } : p,
+      ),
     );
-    startTransition(async () => { await confirmarEntrega(recorridoId); });
+    startTransition(async () => { await confirmarEntrega(comandaId); });
   }
 
-  function handleCancelar(recorridoId: number) {
+  function handleCancelar(comandaId: number) {
     setPedidos((prev) =>
       prev.map((p) =>
-        p.recorrido?.id === recorridoId
-          ? { ...p, recorrido: { ...p.recorrido!, estado: "CANCELADO" } }
-          : p
-      )
+        p.comandaId === comandaId ? { ...p, estadoComanda: "CANCELADO" as const } : p,
+      ),
     );
-    startTransition(async () => { await cancelarRecorrido(recorridoId); });
+    startTransition(async () => { await cancelarPedido(comandaId); });
   }
 
   if (pedidos.length === 0) {
     return (
       <div className="text-muted-foreground rounded-lg border border-dashed px-6 py-16 text-center text-sm">
-        No hay pedidos delivery listos. Cuando una comanda de la app esté lista en cocina, aparecerá aquí.
+        No hay pedidos delivery. Cuando una comanda esté lista en cocina, aparecerá aquí.
       </div>
     );
   }

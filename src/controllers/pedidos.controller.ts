@@ -3,20 +3,20 @@
 import { pedidosService } from "@/services/pedidos.service";
 import { getCurrentUser } from "@/lib/session";
 
-export async function despacharPedido(comandaAplicacionId: number) {
+export async function despacharPedido(comandaId: number): Promise<void> {
   const user = await getCurrentUser();
   if (!user) throw new Error("No autenticado.");
-  return pedidosService.despachar(comandaAplicacionId);
+  await pedidosService.despachar(comandaId);
 }
 
-export async function confirmarEntrega(recorridoId: number): Promise<void> {
+export async function confirmarEntrega(comandaId: number): Promise<void> {
   const user = await getCurrentUser();
   if (!user) throw new Error("No autenticado.");
-  await pedidosService.confirmarEntrega(recorridoId);
+  await pedidosService.confirmarEntrega(comandaId);
 }
 
-export async function cancelarRecorrido(recorridoId: number): Promise<void> {
+export async function cancelarPedido(comandaId: number): Promise<void> {
   const user = await getCurrentUser();
   if (!user) throw new Error("No autenticado.");
-  await pedidosService.cancelarRecorrido(recorridoId);
+  await pedidosService.cancelar(comandaId);
 }
