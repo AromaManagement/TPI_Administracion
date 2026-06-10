@@ -2,24 +2,18 @@ import "server-only";
 import { api } from "@/lib/api";
 import type { CocinaComanda, CocinaDetalle, EstadoComanda } from "@/models";
 
-// ---------------------------------------------------------------------------
-// Shape del backend
-//
-// LIMITACIÓN: `detalles: true` en el select del backend devuelve los campos
-// de DetalleComanda (platoId, empleadoId, precioUnitario) pero sin joins a
-// Platos ni Usuario — los nombres de plato y empleado no están disponibles
-// hasta que el backend agregue esos joins al select.
-// ---------------------------------------------------------------------------
-
 interface BackendDetalle {
   id: number;
   comandaId: number;
   platoId: number;
   empleadoId: number | null;
   precioUnitario: string | number;
+  estadoDetalle: string;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
+  plato?: { id: number; nombre: string; precio: number } | null;
+  empleado?: { id: number; nombre: string; apellido: string } | null;
 }
 
 interface BackendDireccion {
@@ -57,12 +51,11 @@ function toDetalle(d: BackendDetalle): CocinaDetalle {
   return {
     id: d.id,
     platoId: d.platoId,
-    // El backend no incluye plato.nombre en el select actual
-    platoNombre: `Plato #${d.platoId}`,
+    platoNombre: d.plato?.nombre ?? `Plato #${d.platoId}`,
     empleadoId: d.empleadoId,
-    // El backend no incluye empleado.nombre en el select actual
-    empleadoNombre: null,
+    empleadoNombre: d.empleado ? `${d.empleado.nombre} ${d.empleado.apellido}` : null,
     precioUnitario: Number(d.precioUnitario),
+    estadoDetalle: (d.estadoDetalle ?? "SIN_ASIGNAR") as CocinaDetalle["estadoDetalle"],
   };
 }
 
@@ -114,5 +107,17 @@ export const cocinaService = {
 
   completarComanda: async (comandaId: number): Promise<void> => {
     await api.patch(`/comandas/${comandaId}/estado`, { nuevoEstado: "LISTO" });
+  },
+
+  tomarDetalle: async (detalleId: number, chefId?: number): Promise<void> => {
+    await api.post(`/comandas/assign-chef`, { detalleComandaId: detalleId, ...(chefId ? { chefId } : {}) });
+  },
+
+  completarDetalle: async (detalleId: number): Promise<void> => {
+    await api.patch(`/comandas/detalles/${detalleId}/completar`, {});
+  },
+
+  desasignarDetalle: async (detalleId: number): Promise<void> => {
+    await api.patch(`/comandas/detalles/${detalleId}/desasignar`, {});
   },
 };

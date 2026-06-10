@@ -18,6 +18,8 @@ export type EstadoRecorrido = "PENDIENTE" | "EN_CAMINO" | "ENTREGADO" | "CANCELA
 // ---------------------------------------------------------------------------
 
 /** Detalle de comanda tal como lo devuelve el backend (con joins a plato y empleado). */
+export type EstadoDetalle = "SIN_ASIGNAR" | "EN_COCINA" | "LISTO";
+
 export interface CocinaDetalle {
   id: number;
   platoId: number;
@@ -25,6 +27,7 @@ export interface CocinaDetalle {
   empleadoId: number | null;
   empleadoNombre: string | null;
   precioUnitario: number;
+  estadoDetalle: EstadoDetalle;
 }
 
 /** Comanda enriquecida para la vista de cocina. */

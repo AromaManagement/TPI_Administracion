@@ -14,3 +14,21 @@ export async function completarComanda(comandaId: number): Promise<void> {
   if (!user) throw new Error("No autenticado.");
   await cocinaService.completarComanda(comandaId);
 }
+
+export async function tomarDetalle(detalleId: number, chefId?: number): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) throw new Error("No autenticado.");
+  await cocinaService.tomarDetalle(detalleId, chefId);
+}
+
+export async function completarDetalle(detalleId: number): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) throw new Error("No autenticado.");
+  await cocinaService.completarDetalle(detalleId);
+}
+
+export async function desasignarDetalle(detalleId: number): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) throw new Error("No autenticado.");
+  await cocinaService.desasignarDetalle(detalleId);
+}

@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -18,10 +17,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { MapPin } from "lucide-react";
-import type { CocinaComanda, CocinaDetalle, EstadoComanda } from "@/models";
+import { MapPin, ChefHat } from "lucide-react";
+import type { CocinaComanda, CocinaDetalle, EstadoComanda, EstadoDetalle } from "@/models";
 import { formatDateTime } from "@/lib/format";
-import { tomarComanda, completarComanda } from "@/controllers/cocina.controller";
+import {
+  tomarDetalle,
+  completarDetalle,
+  desasignarDetalle,
+} from "@/controllers/cocina.controller";
+
+export interface Cocinero {
+  id: number;
+  nombre: string;
+  apellido: string;
+}
 
 // ---------------------------------------------------------------------------
 // Column config
@@ -33,26 +42,108 @@ const COLUMNS: { estado: EstadoComanda; label: string; color: string }[] = [
   { estado: "LISTO",       label: "Listo",        color: "bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-400" },
 ];
 
+const DETALLE_BADGE: Record<EstadoDetalle, string> = {
+  SIN_ASIGNAR: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300",
+  EN_COCINA:   "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
+  LISTO:       "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
+};
+
+const DETALLE_LABEL: Record<EstadoDetalle, string> = {
+  SIN_ASIGNAR: "Sin asignar",
+  EN_COCINA:   "En cocina",
+  LISTO:       "Listo",
+};
+
+// ---------------------------------------------------------------------------
+// AsignarCocineroDialog
+// ---------------------------------------------------------------------------
+
+function AsignarCocineroDialog({
+  open,
+  cocineros,
+  onConfirm,
+  onCancel,
+}: {
+  open: boolean;
+  cocineros: Cocinero[];
+  onConfirm: (chefId: number) => void;
+  onCancel: () => void;
+}) {
+  const [selected, setSelected] = useState<number | null>(null);
+
+  function handleConfirm(chefId: number) {
+    setSelected(null);
+    onConfirm(chefId);
+  }
+
+  function handleCancel() {
+    setSelected(null);
+    onCancel();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) handleCancel(); }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Asignar cocinero</DialogTitle>
+          <DialogDescription>
+            Seleccioná el cocinero que va a preparar este plato.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-2 py-2">
+          {cocineros.length === 0 && (
+            <p className="text-muted-foreground text-sm text-center py-4">No hay cocineros disponibles.</p>
+          )}
+          {cocineros.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => setSelected(c.id)}
+              className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-left text-sm transition-colors ${
+                selected === c.id
+                  ? "border-primary bg-primary/5 font-semibold"
+                  : "border-border hover:bg-muted"
+              }`}
+            >
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-bold uppercase">
+                {c.nombre[0]}{c.apellido[0]}
+              </div>
+              {c.nombre} {c.apellido}
+            </button>
+          ))}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={handleCancel}>Cancelar</Button>
+          <Button disabled={!selected} onClick={() => selected && handleConfirm(selected)}>
+            Asignar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // ConfirmListoDialog
 // ---------------------------------------------------------------------------
 
 function ConfirmListoDialog({
+  platoNombre,
   open,
   onConfirm,
   onCancel,
 }: {
+  platoNombre: string;
   open: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onCancel(); }}>
-      <DialogContent showCloseButton={false}>
+      <DialogContent>
         <DialogHeader>
-          <DialogTitle>¿Marcar como lista?</DialogTitle>
+          <DialogTitle>¿Marcar como listo?</DialogTitle>
           <DialogDescription>
-            Todos los platos de esta comanda están listos para servir.
+            Estás por marcar <strong>{platoNombre}</strong> como listo.
             Esta acción no se puede deshacer.
           </DialogDescription>
         </DialogHeader>
@@ -69,13 +160,64 @@ function ConfirmListoDialog({
 // DetalleRow
 // ---------------------------------------------------------------------------
 
-function DetalleRow({ detalle }: { detalle: CocinaDetalle }) {
+function DetalleRow({
+  detalle,
+  onTomar,
+  onRequestCompletar,
+  onDesasignar,
+  pending,
+}: {
+  detalle: CocinaDetalle;
+  onTomar: (id: number) => void;
+  onRequestCompletar: (id: number, nombre: string) => void;
+  onDesasignar: (id: number) => void;
+  pending: boolean;
+}) {
   return (
     <div className="flex items-start justify-between gap-2 rounded-md border bg-card px-3 py-2 text-sm">
       <div className="min-w-0 flex-1">
         <p className="font-medium leading-tight">{detalle.platoNombre}</p>
         {detalle.empleadoNombre && (
-          <p className="text-muted-foreground mt-0.5 text-xs">{detalle.empleadoNombre}</p>
+          <p className="text-muted-foreground text-xs mt-0.5">{detalle.empleadoNombre}</p>
+        )}
+        <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${DETALLE_BADGE[detalle.estadoDetalle]}`}>
+          {DETALLE_LABEL[detalle.estadoDetalle]}
+        </span>
+      </div>
+
+      <div className="flex flex-col gap-1 shrink-0">
+        {detalle.estadoDetalle === "SIN_ASIGNAR" && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs"
+            disabled={pending}
+            onClick={() => onTomar(detalle.id)}
+          >
+            <ChefHat className="size-3 mr-1" />
+            Asignar
+          </Button>
+        )}
+        {detalle.estadoDetalle === "EN_COCINA" && (
+          <>
+            <Button
+              size="sm"
+              className="h-7 text-xs"
+              disabled={pending}
+              onClick={() => onRequestCompletar(detalle.id, detalle.platoNombre)}
+            >
+              Listo
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs text-muted-foreground"
+              disabled={pending}
+              onClick={() => onDesasignar(detalle.id)}
+            >
+              Desasignar
+            </Button>
+          </>
         )}
       </div>
     </div>
@@ -88,13 +230,15 @@ function DetalleRow({ detalle }: { detalle: CocinaDetalle }) {
 
 function ComandaCard({
   comanda,
-  onTomar,
-  onRequestCompletar,
+  onTomarDetalle,
+  onRequestCompletarDetalle,
+  onDesasignarDetalle,
   pending,
 }: {
   comanda: CocinaComanda;
-  onTomar: (id: number) => void;
-  onRequestCompletar: (id: number) => void;
+  onTomarDetalle: (id: number) => void;
+  onRequestCompletarDetalle: (id: number, nombre: string) => void;
+  onDesasignarDetalle: (id: number) => void;
   pending: boolean;
 }) {
   return (
@@ -108,7 +252,7 @@ function ComandaCard({
         </CardTitle>
       </CardHeader>
 
-      <CardContent className="flex flex-col gap-2 pt-0">
+      <CardContent className="flex flex-col gap-2 pt-0 pb-3">
         {comanda.clienteNombre && (
           <p className="text-muted-foreground text-xs">{comanda.clienteNombre}</p>
         )}
@@ -119,35 +263,16 @@ function ComandaCard({
           </p>
         )}
         {comanda.detalles.map((det) => (
-          <DetalleRow key={det.id} detalle={det} />
+          <DetalleRow
+            key={det.id}
+            detalle={det}
+            onTomar={onTomarDetalle}
+            onRequestCompletar={onRequestCompletarDetalle}
+            onDesasignar={onDesasignarDetalle}
+            pending={pending}
+          />
         ))}
       </CardContent>
-
-      {(comanda.estadoComanda === "SIN_ASIGNAR" || comanda.estadoComanda === "EN_COCINA") && (
-        <CardFooter className="pt-0">
-          {comanda.estadoComanda === "SIN_ASIGNAR" && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="w-full h-8 text-xs"
-              disabled={pending}
-              onClick={() => onTomar(comanda.id)}
-            >
-              Tomar comanda
-            </Button>
-          )}
-          {comanda.estadoComanda === "EN_COCINA" && (
-            <Button
-              size="sm"
-              className="w-full h-8 text-xs"
-              disabled={pending}
-              onClick={() => onRequestCompletar(comanda.id)}
-            >
-              Marcar lista
-            </Button>
-          )}
-        </CardFooter>
-      )}
     </Card>
   );
 }
@@ -156,39 +281,94 @@ function ComandaCard({
 // CocinaView
 // ---------------------------------------------------------------------------
 
-export function CocinaView({ initial }: { initial: CocinaComanda[] }) {
+type PendingConfirm = { detalleId: number; platoNombre: string } | null;
+
+export function CocinaView({ initial, cocineros }: { initial: CocinaComanda[]; cocineros: Cocinero[] }) {
   const [comandas, setComandas] = useState<CocinaComanda[]>(initial);
   const [isPending, startTransition] = useTransition();
-  const [confirmId, setConfirmId] = useState<number | null>(null);
+  const [pendingDetalleId, setPendingDetalleId] = useState<number | null>(null);
+  const [pendingConfirm, setPendingConfirm] = useState<PendingConfirm>(null);
 
-  function handleTomar(comandaId: number) {
+  function handleTomarDetalle(detalleId: number) {
+    setPendingDetalleId(detalleId);
+  }
+
+  function handleConfirmAsignar(chefId: number) {
+    const detalleId = pendingDetalleId!;
+    setPendingDetalleId(null);
+    const cocinero = cocineros.find((c) => c.id === chefId);
     setComandas((prev) =>
-      prev.map((c) =>
-        c.id === comandaId ? { ...c, estadoComanda: "EN_COCINA" as const } : c,
-      ),
+      prev.map((c) => {
+        if (!c.detalles.some((d) => d.id === detalleId)) return c;
+        const updatedDetalles = c.detalles.map((d) =>
+          d.id === detalleId
+            ? { ...d, estadoDetalle: "EN_COCINA" as const, empleadoId: chefId, empleadoNombre: cocinero ? `${cocinero.nombre} ${cocinero.apellido}` : null }
+            : d
+        );
+        const estadoComanda = c.estadoComanda === "SIN_ASIGNAR" ? ("EN_COCINA" as const) : c.estadoComanda;
+        return { ...c, detalles: updatedDetalles, estadoComanda };
+      })
     );
-    startTransition(async () => { await tomarComanda(comandaId); });
+    startTransition(async () => { await tomarDetalle(detalleId, chefId); });
+  }
+
+  function handleRequestCompletarDetalle(detalleId: number, platoNombre: string) {
+    setPendingConfirm({ detalleId, platoNombre });
   }
 
   function handleConfirmCompletar() {
-    if (confirmId === null) return;
-    const id = confirmId;
-    setConfirmId(null);
+    if (!pendingConfirm) return;
+    const { detalleId } = pendingConfirm;
+    setPendingConfirm(null);
     setComandas((prev) =>
-      prev.map((c) =>
-        c.id === id ? { ...c, estadoComanda: "LISTO" as const } : c,
-      ),
+      prev.map((c) => {
+        if (!c.detalles.some((d) => d.id === detalleId)) return c;
+        const updatedDetalles = c.detalles.map((d) =>
+          d.id === detalleId ? { ...d, estadoDetalle: "LISTO" as const } : d
+        );
+        const todosListos = updatedDetalles.every((d) => d.estadoDetalle === "LISTO");
+        return {
+          ...c,
+          detalles: updatedDetalles,
+          estadoComanda: todosListos ? ("LISTO" as const) : c.estadoComanda,
+        };
+      })
     );
-    startTransition(async () => { await completarComanda(id); });
+    startTransition(async () => { await completarDetalle(detalleId); });
+  }
+
+  function handleDesasignarDetalle(detalleId: number) {
+    setComandas((prev) =>
+      prev.map((c) => {
+        if (!c.detalles.some((d) => d.id === detalleId)) return c;
+        const updatedDetalles = c.detalles.map((d) =>
+          d.id === detalleId ? { ...d, estadoDetalle: "SIN_ASIGNAR" as const, empleadoNombre: null, empleadoId: null } : d
+        );
+        const todosLibres = updatedDetalles.every((d) => d.estadoDetalle === "SIN_ASIGNAR");
+        return {
+          ...c,
+          detalles: updatedDetalles,
+          estadoComanda: todosLibres ? ("SIN_ASIGNAR" as const) : c.estadoComanda,
+        };
+      })
+    );
+    startTransition(async () => { await desasignarDetalle(detalleId); });
   }
 
   return (
     <>
-      {confirmId !== null && (
+      <AsignarCocineroDialog
+        open={pendingDetalleId !== null}
+        cocineros={cocineros}
+        onConfirm={handleConfirmAsignar}
+        onCancel={() => setPendingDetalleId(null)}
+      />
+      {pendingConfirm && (
         <ConfirmListoDialog
           open={true}
+          platoNombre={pendingConfirm.platoNombre}
           onConfirm={handleConfirmCompletar}
-          onCancel={() => setConfirmId(null)}
+          onCancel={() => setPendingConfirm(null)}
         />
       )}
 
@@ -215,8 +395,9 @@ export function CocinaView({ initial }: { initial: CocinaComanda[] }) {
                     <ComandaCard
                       key={c.id}
                       comanda={c}
-                      onTomar={handleTomar}
-                      onRequestCompletar={setConfirmId}
+                      onTomarDetalle={handleTomarDetalle}
+                      onRequestCompletarDetalle={handleRequestCompletarDetalle}
+                      onDesasignarDetalle={handleDesasignarDetalle}
                       pending={isPending}
                     />
                   ))

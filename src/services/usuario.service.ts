@@ -23,4 +23,7 @@ export const usuarioService = {
     api.put<Usuario>(`/usuarios/${id}`, data),
 
   remove: (id: number) => api.delete<Usuario>(`/usuarios/${id}`),
+
+  getByRol: (rol: string) =>
+    api.get<Pick<Usuario, "id" | "nombre" | "apellido">[]>(`/usuarios/by-rol?rol=${rol}`),
 };

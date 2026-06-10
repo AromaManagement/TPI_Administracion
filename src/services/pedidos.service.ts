@@ -2,15 +2,12 @@ import "server-only";
 import { api } from "@/lib/api";
 import type { PedidoDelivery, EstadoComanda } from "@/models";
 
-// ---------------------------------------------------------------------------
-// Shape del backend (sin joins a plato/empleado — ver cocina.service.ts)
-// ---------------------------------------------------------------------------
-
 interface BackendDetalle {
   id: number;
   platoId: number;
   precioUnitario: string | number;
   deletedAt: string | null;
+  plato?: { id: number; nombre: string; precio: number } | null;
 }
 
 interface BackendDireccion {
@@ -44,8 +41,7 @@ function toPedido(bc: BackendComanda): PedidoDelivery {
   const detalles = bc.detalles
     .filter((d) => !d.deletedAt)
     .map((d) => ({
-      // El backend no incluye plato.nombre en el select actual
-      platoNombre: `Plato #${d.platoId}`,
+      platoNombre: d.plato?.nombre ?? `Plato #${d.platoId}`,
       precioUnitario: Number(d.precioUnitario),
     }));
 
