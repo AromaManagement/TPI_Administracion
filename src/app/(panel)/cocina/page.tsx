@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/layout/page-header";
+import { AutoRefresh } from "@/components/ui/auto-refresh";
 import { cocinaService } from "@/services/cocina.service";
 import { usuarioService } from "@/services/usuario.service";
 import { CocinaView } from "@/views/cocina/cocina-view";
@@ -16,7 +17,9 @@ export default async function CocinaPage() {
       <PageHeader
         title="Cocina"
         description="Seguimiento de platos en preparación. Asigná un cocinero a cada plato y marcalo como listo cuando esté."
-      />
+      >
+        <AutoRefresh />
+      </PageHeader>
       <CocinaView initial={comandas} cocineros={cocineros} />
     </>
   );

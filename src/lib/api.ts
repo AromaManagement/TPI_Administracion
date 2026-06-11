@@ -1,5 +1,6 @@
 import "server-only";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { API_URL, AUTH_COOKIE } from "./config";
 import type { ApiResponse } from "@/models";
 
@@ -66,6 +67,7 @@ async function request<T>(
   const payload = text ? JSON.parse(text) : null;
 
   if (!res.ok) {
+    if (res.status === 401) redirect("/login");
     const message =
       payload?.message ?? "Ocurrió un error al comunicarse con el servidor.";
     throw new ApiError(message, res.status, payload?.errors);

@@ -9,7 +9,7 @@ setup("autenticar como admin y guardar cookies", async ({ page }) => {
 
   await page.goto("/login");
   await page.getByLabel("Correo").fill("admin@aromas.com");
-  await page.getByLabel("Contraseña").fill("admin123");
+  await page.getByLabel("Contraseña").fill("12345678");
   await page.getByRole("button", { name: "Iniciar sesión" }).click();
 
   await page.waitForURL("**/dashboard");

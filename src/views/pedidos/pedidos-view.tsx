@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { MapPin, TruckIcon, CheckCircleIcon, XCircleIcon, PackageIcon } from "lucide-react";
+import { MapPin, TruckIcon, CheckCircleIcon, XCircleIcon, PackageIcon, ClockIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,7 +14,6 @@ import {
 import type { PedidoDelivery, EstadoComanda } from "@/models";
 import { formatDateTime } from "@/lib/format";
 import {
-  despacharPedido,
   confirmarEntrega,
   cancelarPedido,
 } from "@/controllers/pedidos.controller";
@@ -59,13 +58,11 @@ function formatPeso(n: number) {
 
 function PedidoCard({
   pedido,
-  onDespachar,
   onConfirmar,
   onCancelar,
   pending,
 }: {
   pedido: PedidoDelivery;
-  onDespachar: (id: number) => void;
   onConfirmar: (id: number) => void;
   onCancelar: (id: number) => void;
   pending: boolean;
@@ -111,42 +108,35 @@ function PedidoCard({
         </p>
       </CardContent>
 
-      {columna !== "finalizado" && (
+      {columna === "pendiente" && (
+        <CardFooter className="pt-0">
+          <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
+            <ClockIcon className="size-3.5" />
+            Esperando que un repartidor lo tome desde la app
+          </p>
+        </CardFooter>
+      )}
+      {columna === "en_camino" && (
         <CardFooter className="flex gap-2 pt-0">
-          {columna === "pendiente" && (
-            <Button
-              size="sm"
-              className="flex-1 h-8 text-xs"
-              disabled={pending}
-              onClick={() => onDespachar(pedido.comandaId)}
-            >
-              <TruckIcon className="size-3.5" />
-              Despachar
-            </Button>
-          )}
-          {columna === "en_camino" && (
-            <>
-              <Button
-                size="sm"
-                className="flex-1 h-8 text-xs"
-                disabled={pending}
-                onClick={() => onConfirmar(pedido.comandaId)}
-              >
-                <CheckCircleIcon className="size-3.5" />
-                Entregado
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 text-xs text-destructive hover:text-destructive"
-                disabled={pending}
-                onClick={() => onCancelar(pedido.comandaId)}
-              >
-                <XCircleIcon className="size-3.5" />
-                Cancelar
-              </Button>
-            </>
-          )}
+          <Button
+            size="sm"
+            className="flex-1 h-8 text-xs"
+            disabled={pending}
+            onClick={() => onConfirmar(pedido.comandaId)}
+          >
+            <CheckCircleIcon className="size-3.5" />
+            Entregado
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 text-xs text-destructive hover:text-destructive"
+            disabled={pending}
+            onClick={() => onCancelar(pedido.comandaId)}
+          >
+            <XCircleIcon className="size-3.5" />
+            Cancelar
+          </Button>
         </CardFooter>
       )}
     </Card>
@@ -171,15 +161,6 @@ const COLUMNAS: {
 export function PedidosView({ initial }: { initial: PedidoDelivery[] }) {
   const [pedidos, setPedidos] = useState<PedidoDelivery[]>(initial);
   const [isPending, startTransition] = useTransition();
-
-  function handleDespachar(comandaId: number) {
-    setPedidos((prev) =>
-      prev.map((p) =>
-        p.comandaId === comandaId ? { ...p, estadoComanda: "EN_CAMINO" as const } : p,
-      ),
-    );
-    startTransition(async () => { await despacharPedido(comandaId); });
-  }
 
   function handleConfirmar(comandaId: number) {
     setPedidos((prev) =>
@@ -233,7 +214,6 @@ export function PedidosView({ initial }: { initial: PedidoDelivery[] }) {
                   <PedidoCard
                     key={p.comandaId}
                     pedido={p}
-                    onDespachar={handleDespachar}
                     onConfirmar={handleConfirmar}
                     onCancelar={handleCancelar}
                     pending={isPending}

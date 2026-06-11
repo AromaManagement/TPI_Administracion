@@ -8,6 +8,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -108,8 +118,14 @@ function LocalidadDialog({
 }
 
 export function LocalidadesView({ localidades }: { localidades: Localidad[] }) {
+  const [items, setItems] = useState(localidades);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Localidad | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Sync if server re-renders with fresh data
+  useEffect(() => { setItems(localidades); }, [localidades]);
 
   function openCreate() {
     setEditing(null);
@@ -121,15 +137,43 @@ export function LocalidadesView({ localidades }: { localidades: Localidad[] }) {
     setDialogOpen(true);
   }
 
-  async function handleDelete(localidad: Localidad) {
-    if (!confirm(`¿Eliminar la localidad "${localidad.nombre}"?`)) return;
-    const result = await deleteLocalidadAction(localidad.id);
+  async function handleConfirmDelete() {
+    if (deletingId === null) return;
+    setIsDeleting(true);
+    setItems((prev) => prev.filter((l) => l.id !== deletingId));
+    const result = await deleteLocalidadAction(deletingId);
     if (result.ok) toast.success(result.message ?? "Localidad eliminada.");
-    else toast.error(result.error);
+    else {
+      setItems(localidades);
+      toast.error(result.error);
+    }
+    setDeletingId(null);
+    setIsDeleting(false);
   }
 
   return (
     <>
+      <AlertDialog open={deletingId !== null} onOpenChange={(o) => { if (!o) setDeletingId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar localidad?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción no se puede deshacer. Se eliminará la localidad permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? "Eliminando…" : "Eliminar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <div className="mb-4 flex justify-end">
         <Button onClick={openCreate}>
           <Plus className="mr-2 size-4" />
@@ -148,36 +192,23 @@ export function LocalidadesView({ localidades }: { localidades: Localidad[] }) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {localidades.length === 0 ? (
+            {items.length === 0 ? (
               <TableRow>
-                <TableCell
-                  colSpan={4}
-                  className="text-muted-foreground py-10 text-center"
-                >
+                <TableCell colSpan={4} className="text-muted-foreground py-10 text-center">
                   No hay localidades cargadas.
                 </TableCell>
               </TableRow>
             ) : (
-              localidades.map((localidad) => (
+              items.map((localidad) => (
                 <TableRow key={localidad.id}>
-                  <TableCell className="text-muted-foreground">
-                    {localidad.id}
-                  </TableCell>
+                  <TableCell className="text-muted-foreground">{localidad.id}</TableCell>
                   <TableCell className="font-medium">{localidad.nombre}</TableCell>
                   <TableCell>{formatDate(localidad.createdAt)}</TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => openEdit(localidad)}
-                    >
+                    <Button variant="ghost" size="icon" onClick={() => openEdit(localidad)}>
                       <Pencil className="size-4" />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDelete(localidad)}
-                    >
+                    <Button variant="ghost" size="icon" onClick={() => setDeletingId(localidad.id)}>
                       <Trash2 className="text-destructive size-4" />
                     </Button>
                   </TableCell>

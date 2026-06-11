@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/layout/page-header";
+import { AutoRefresh } from "@/components/ui/auto-refresh";
 import { pedidosService } from "@/services/pedidos.service";
 import { PedidosView } from "@/views/pedidos/pedidos-view";
 
@@ -11,8 +12,10 @@ export default async function PedidosPage() {
     <>
       <PageHeader
         title="Pedidos delivery"
-        description="Pedidos listos en cocina pendientes de despacho. Avanzá el estado de cada recorrido."
-      />
+        description="Pedidos listos en cocina pendientes de despacho."
+      >
+        <AutoRefresh />
+      </PageHeader>
       <PedidosView initial={pedidos} />
     </>
   );
