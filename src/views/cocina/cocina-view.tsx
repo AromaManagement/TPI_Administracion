@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { MapPin, ChefHat } from "lucide-react";
 import type { CocinaComanda, CocinaDetalle, EstadoComanda, EstadoDetalle } from "@/models";
+import type { SessionUser } from "@/lib/session";
 import { formatDateTime } from "@/lib/format";
 import {
   tomarDetalle,
@@ -283,20 +284,25 @@ function ComandaCard({
 
 type PendingConfirm = { detalleId: number; platoNombre: string } | null;
 
-export function CocinaView({ initial, cocineros }: { initial: CocinaComanda[]; cocineros: Cocinero[] }) {
+export function CocinaView({ initial, cocineros, currentUser }: { initial: CocinaComanda[]; cocineros: Cocinero[]; currentUser: SessionUser | null }) {
   const [comandas, setComandas] = useState<CocinaComanda[]>(initial);
   const [isPending, startTransition] = useTransition();
   const [pendingDetalleId, setPendingDetalleId] = useState<number | null>(null);
   const [pendingConfirm, setPendingConfirm] = useState<PendingConfirm>(null);
 
   function handleTomarDetalle(detalleId: number) {
+    if (currentUser?.rol === "COCINERO") {
+      handleConfirmAsignar(currentUser.id, detalleId);
+      return;
+    }
     setPendingDetalleId(detalleId);
   }
 
-  function handleConfirmAsignar(chefId: number) {
-    const detalleId = pendingDetalleId!;
+  function handleConfirmAsignar(chefId: number, overrideDetalleId?: number) {
+    const detalleId = overrideDetalleId ?? pendingDetalleId!;
     setPendingDetalleId(null);
-    const cocinero = cocineros.find((c) => c.id === chefId);
+    const cocinero = cocineros.find((c) => c.id === chefId) ??
+      (currentUser && currentUser.id === chefId ? { id: currentUser.id, nombre: currentUser.nombre, apellido: currentUser.apellido } : undefined);
     setComandas((prev) =>
       prev.map((c) => {
         if (!c.detalles.some((d) => d.id === detalleId)) return c;

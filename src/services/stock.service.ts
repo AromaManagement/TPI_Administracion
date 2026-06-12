@@ -1,73 +1,42 @@
 import "server-only";
-import fs from "fs/promises";
-import path from "path";
-import type { Articulo, Stock, MovimientoStock, ArticuloStock, TipoMov, UnidadMedida } from "@/models";
+import { api } from "@/lib/api";
+import type { ArticuloStock, MovimientoStock, TipoMov, UnidadMedida } from "@/models";
 
 // ---------------------------------------------------------------------------
-// File store — replace each method body with fetch() to connect the backend.
+// Backend response shapes
 // ---------------------------------------------------------------------------
 
-const DATA_PATH = path.resolve(process.cwd(), "..", "mock-data", "stock.json");
+type BackendArticulo = {
+  id: number;
+  nombre: string;
+  descripcion: string | null;
+  esIngrediente: boolean;
+  unidadMedida: UnidadMedida | null;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+};
 
-interface PersistedData {
-  articulos: Articulo[];
-  stocks: Stock[];
-  movimientos: MovimientoStock[];
-  nextIds: { articulo: number; stock: number; movimiento: number };
-}
+type BackendStock = {
+  id: number;
+  articuloId: number;
+  cantidad: number;
+  minimo: number | null;
+};
 
-let _cache: PersistedData | null = null;
-
-async function load(): Promise<PersistedData> {
-  if (_cache) return _cache;
-  try {
-    const raw = await fs.readFile(DATA_PATH, "utf-8");
-    _cache = JSON.parse(raw) as PersistedData;
-    return _cache;
-  } catch {
-    _cache = { articulos: [], stocks: [], movimientos: [], nextIds: { articulo: 1, stock: 1, movimiento: 1 } };
-    await save(_cache);
-    return _cache;
-  }
-}
-
-async function save(data: PersistedData): Promise<void> {
-  await fs.mkdir(path.dirname(DATA_PATH), { recursive: true });
-  await fs.writeFile(DATA_PATH, JSON.stringify(data, null, 2), "utf-8");
-}
-
-function ts() {
-  return new Date().toISOString();
-}
-
-function buildView(d: PersistedData): ArticuloStock[] {
-  return d.articulos
-    .filter((a) => !a.deletedAt)
-    .map((a) => {
-      const stock = d.stocks.find((s) => s.articuloId === a.id && !s.deletedAt);
-      const movimientos = d.movimientos
-        .filter((m) => m.stockId === stock?.id && !m.deletedAt)
-        .sort((a, b) => b.fecha.localeCompare(a.fecha));
-      return {
-        id: a.id,
-        nombre: a.nombre,
-        descripcion: a.descripcion,
-        esIngrediente: a.esIngrediente,
-        unidadMedida: a.unidadMedida,
-        stockId: stock?.id ?? 0,
-        cantidad: stock?.cantidad ?? 0,
-        minimo: stock?.minimo ?? null,
-        movimientos,
-        createdAt: a.createdAt,
-        updatedAt: a.updatedAt,
-        deletedAt: a.deletedAt,
-      };
-    })
-    .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
-}
+type BackendMovimiento = {
+  id: number;
+  stockId: number;
+  tipoMov: TipoMov;
+  cantidad: number;
+  fecha: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+};
 
 // ---------------------------------------------------------------------------
-// Public API
+// Public input types
 // ---------------------------------------------------------------------------
 
 export type CreateArticuloInput = {
@@ -93,147 +62,137 @@ export type MovimientoInput = {
   fecha: string;
 };
 
+// ---------------------------------------------------------------------------
+// Service
+// ---------------------------------------------------------------------------
+
 export const stockService = {
   getArticulos: async (): Promise<ArticuloStock[]> => {
-    const d = await load();
-    return buildView(d);
+    const [articulos, stocks, movimientos] = await Promise.all([
+      api.get<BackendArticulo[]>("/articulo"),
+      api.get<BackendStock[]>("/stock"),
+      api.get<BackendMovimiento[]>("/movimiento-stock"),
+    ]);
+
+    const stockMap = new Map(stocks.map((s) => [s.articuloId, s]));
+
+    const movsByStock = new Map<number, MovimientoStock[]>();
+    for (const m of movimientos) {
+      const list = movsByStock.get(m.stockId) ?? [];
+      list.push({
+        id: m.id,
+        stockId: m.stockId,
+        tipoMov: m.tipoMov,
+        cantidad: Number(m.cantidad),
+        fecha: m.fecha.slice(0, 10),
+        createdAt: m.createdAt,
+        updatedAt: m.updatedAt,
+        deletedAt: m.deletedAt,
+      });
+      movsByStock.set(m.stockId, list);
+    }
+
+    return articulos
+      .filter((a) => !a.deletedAt)
+      .map((a): ArticuloStock => {
+        const s = stockMap.get(a.id);
+        const movs = (movsByStock.get(s?.id ?? 0) ?? []).sort(
+          (x, y) => new Date(y.createdAt).getTime() - new Date(x.createdAt).getTime(),
+        );
+        return {
+          id: a.id,
+          nombre: a.nombre,
+          descripcion: a.descripcion,
+          esIngrediente: a.esIngrediente,
+          unidadMedida: a.unidadMedida,
+          stockId: s?.id ?? 0,
+          cantidad: s ? Number(s.cantidad) : 0,
+          minimo: s?.minimo != null ? Number(s.minimo) : null,
+          movimientos: movs,
+          createdAt: a.createdAt,
+          updatedAt: a.updatedAt,
+          deletedAt: a.deletedAt,
+        };
+      })
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
   },
 
   createArticulo: async (input: CreateArticuloInput): Promise<ArticuloStock> => {
-    const d = await load();
-
-    const articuloId = d.nextIds.articulo++;
-    const stockId = d.nextIds.stock++;
-    const movimientoId = d.nextIds.movimiento++;
-    const now = ts();
-
-    d.articulos.push({
-      id: articuloId,
+    // POST /articulo auto-creates a stock record (cantidad=0)
+    const articulo = await api.post<BackendArticulo>("/articulo", {
       nombre: input.nombre.trim(),
       descripcion: input.descripcion?.trim() || null,
       esIngrediente: input.esIngrediente,
-      unidadMedida: input.unidadMedida,
-      createdAt: now,
-      updatedAt: now,
-      deletedAt: null,
+      unidadMedida: input.unidadMedida || null,
     });
 
-    d.stocks.push({
-      id: stockId,
-      articuloId,
-      cantidad: input.cantidadInicial,
-      minimo: input.minimo,
-      createdAt: now,
-      updatedAt: now,
-      deletedAt: null,
-    });
+    // Fetch the stock record that was just created alongside the articulo
+    const stocks = await api.get<BackendStock[]>("/stock");
+    const stock = stocks.find((s) => s.articuloId === articulo.id)!;
 
-    const movimientos: MovimientoStock[] = [];
+    // Apply initial quantity as an INGRESO movement (also updates stock.cantidad)
     if (input.cantidadInicial > 0) {
-      const mov: MovimientoStock = {
-        id: movimientoId,
-        stockId,
+      await api.post("/movimiento-stock", {
+        stockId: stock.id,
         tipoMov: "INGRESO",
         cantidad: input.cantidadInicial,
-        fecha: now.slice(0, 10),
-        createdAt: now,
-        updatedAt: now,
-        deletedAt: null,
-      };
-      d.movimientos.push(mov);
-      movimientos.push(mov);
+        fecha: new Date().toISOString().slice(0, 10),
+      });
     }
 
-    await save(d);
+    // Set the minimum stock threshold if provided
+    if (input.minimo !== null && input.minimo !== undefined) {
+      await api.put(`/stock/${stock.id}`, { minimo: input.minimo });
+    }
 
     return {
-      id: articuloId,
-      nombre: input.nombre.trim(),
-      descripcion: input.descripcion?.trim() || null,
-      esIngrediente: input.esIngrediente,
-      unidadMedida: input.unidadMedida,
-      stockId,
+      id: articulo.id,
+      nombre: articulo.nombre,
+      descripcion: articulo.descripcion,
+      esIngrediente: articulo.esIngrediente,
+      unidadMedida: articulo.unidadMedida,
+      stockId: stock.id,
       cantidad: input.cantidadInicial,
       minimo: input.minimo,
-      movimientos,
-      createdAt: now,
-      updatedAt: now,
-      deletedAt: null,
+      movimientos: [],
+      createdAt: articulo.createdAt,
+      updatedAt: articulo.updatedAt,
+      deletedAt: articulo.deletedAt,
     };
   },
 
   updateArticulo: async (id: number, input: UpdateArticuloInput): Promise<void> => {
-    const d = await load();
-    const articulo = d.articulos.find((a) => a.id === id);
-    if (!articulo) throw new Error(`Artículo ${id} no encontrado.`);
+    const [, stocks] = await Promise.all([
+      api.put(`/articulo/${id}`, {
+        nombre: input.nombre.trim(),
+        descripcion: input.descripcion?.trim() || null,
+        esIngrediente: input.esIngrediente,
+        unidadMedida: input.unidadMedida || null,
+      }),
+      api.get<BackendStock[]>("/stock"),
+    ]);
 
-    articulo.nombre = input.nombre.trim();
-    articulo.descripcion = input.descripcion?.trim() || null;
-    articulo.esIngrediente = input.esIngrediente;
-    articulo.unidadMedida = input.unidadMedida;
-    articulo.updatedAt = ts();
-
-    const stock = d.stocks.find((s) => s.articuloId === id);
+    const stock = stocks.find((s) => s.articuloId === id);
     if (stock) {
-      stock.minimo = input.minimo;
-      stock.updatedAt = ts();
+      await api.put(`/stock/${stock.id}`, { minimo: input.minimo ?? null });
     }
-
-    await save(d);
   },
 
   deleteArticulo: async (id: number): Promise<void> => {
-    const d = await load();
-    const articulo = d.articulos.find((a) => a.id === id);
-    if (!articulo) throw new Error(`Artículo ${id} no encontrado.`);
-
-    const now = ts();
-    articulo.deletedAt = now;
-    articulo.updatedAt = now;
-
-    const stock = d.stocks.find((s) => s.articuloId === id);
-    if (stock) {
-      stock.deletedAt = now;
-      stock.updatedAt = now;
-    }
-
-    await save(d);
+    // Backend cascades the soft-delete to the associated stock record
+    await api.delete(`/articulo/${id}`);
   },
 
   registrarMovimiento: async (articuloId: number, input: MovimientoInput): Promise<void> => {
-    const d = await load();
-    const stock = d.stocks.find((s) => s.articuloId === articuloId && !s.deletedAt);
-    if (!stock) throw new Error(`Stock para artículo ${articuloId} no encontrado.`);
+    const stocks = await api.get<BackendStock[]>("/stock");
+    const stock = stocks.find((s) => s.articuloId === articuloId);
+    if (!stock) throw new Error(`No se encontró stock para el artículo ${articuloId}.`);
 
-    const now = ts();
-    const movimientoId = d.nextIds.movimiento++;
-
-    d.movimientos.push({
-      id: movimientoId,
+    await api.post("/movimiento-stock", {
       stockId: stock.id,
       tipoMov: input.tipoMov,
       cantidad: input.cantidad,
       fecha: input.fecha,
-      createdAt: now,
-      updatedAt: now,
-      deletedAt: null,
     });
-
-    // Actualizar la cantidad actual del stock
-    switch (input.tipoMov) {
-      case "INGRESO":
-        stock.cantidad += input.cantidad;
-        break;
-      case "EGRESO":
-      case "MERMA":
-        stock.cantidad = Math.max(0, stock.cantidad - input.cantidad);
-        break;
-      case "AJUSTE":
-        stock.cantidad = input.cantidad;
-        break;
-    }
-    stock.updatedAt = now;
-
-    await save(d);
   },
 };

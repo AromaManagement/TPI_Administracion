@@ -30,13 +30,6 @@ export const usuarioSchema = z.object({
 /** En edición la contraseña es opcional (sólo se actualiza si se completa). */
 export const usuarioUpdateSchema = usuarioSchema.partial({ contrasena: true });
 
-export const localidadSchema = z.object({
-  nombre: z
-    .string()
-    .min(2, "El nombre debe tener al menos 2 caracteres.")
-    .max(150, "El nombre no puede tener más de 150 caracteres."),
-});
-
 export const seccionSchema = z.object({
   nombre: z
     .string()
@@ -63,4 +56,3 @@ export const platoUpdateSchema = platoSchema.partial({ seccionId: true, nombre: 
 
 export type LoginValues = z.infer<typeof loginSchema>;
 export type UsuarioValues = z.infer<typeof usuarioSchema>;
-export type LocalidadValues = z.infer<typeof localidadSchema>;

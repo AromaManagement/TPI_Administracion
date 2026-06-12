@@ -2,20 +2,20 @@
   "cookies": [
     {
       "name": "aroma_token",
-      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiY29ycmVvIjoiYWRtaW5AYXJvbWFzLmNvbSIsInJvbCI6IkFETUlOIiwiaWF0IjoxNzgxMTg1NTI0LCJleHAiOjE3ODEyNzE5MjR9.8ZbNsYO8l21hQAPEZ9fJWlHd85SnuPBoVVECLpJfxLw",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6OSwiY29ycmVvIjoiYWRtaW5AYXJvbWFzLmNvbSIsInJvbCI6IkFETUlOIiwiaWF0IjoxNzgxMjE4NDA4LCJleHAiOjE3ODEzMDQ4MDh9.SQNOMP1UDKA93vfwtEExYfpXNt126sHBiqXvl1j_wfA",
       "domain": "localhost",
       "path": "/",
-      "expires": 1781271924.892434,
+      "expires": 1781304808.433101,
       "httpOnly": true,
       "secure": false,
       "sameSite": "Lax"
     },
     {
       "name": "aroma_user",
-      "value": "%7B%22id%22%3A1%2C%22correo%22%3A%22admin%40aromas.com%22%2C%22nombre%22%3A%22Admin%22%2C%22apellido%22%3A%22Aromas%22%2C%22tipoDocumento%22%3Anull%2C%22documento%22%3Anull%2C%22telefono%22%3Anull%2C%22nacimiento%22%3Anull%2C%22direccionId%22%3Anull%2C%22rol%22%3A%22ADMIN%22%2C%22createdAt%22%3A%222026-06-06T23%3A56%3A38.844Z%22%2C%22updatedAt%22%3A%222026-06-06T23%3A56%3A38.844Z%22%2C%22deletedAt%22%3Anull%7D",
+      "value": "%7B%22id%22%3A9%2C%22correo%22%3A%22admin%40aromas.com%22%2C%22nombre%22%3A%22Admin%22%2C%22apellido%22%3A%22Aromas%22%2C%22tipoDocumento%22%3Anull%2C%22documento%22%3Anull%2C%22telefono%22%3A%222610000000%22%2C%22nacimiento%22%3Anull%2C%22direccionId%22%3Anull%2C%22rol%22%3A%22ADMIN%22%2C%22createdAt%22%3A%222026-06-11T22%3A52%3A46.416Z%22%2C%22updatedAt%22%3A%222026-06-11T22%3A52%3A46.416Z%22%2C%22deletedAt%22%3Anull%7D",
       "domain": "localhost",
       "path": "/",
-      "expires": 1781271924.892726,
+      "expires": 1781304808.433368,
       "httpOnly": false,
       "secure": false,
       "sameSite": "Lax"

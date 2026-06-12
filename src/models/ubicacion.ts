@@ -1,11 +1,5 @@
 import type { Timestamps } from "./common";
 
-/** Modelo `localidad` del schema Prisma. */
-export interface Localidad extends Timestamps {
-  id: number;
-  nombre: string;
-}
-
 /** Modelo `direccion` del schema Prisma. */
 export interface Direccion extends Timestamps {
   id: number;
@@ -15,6 +9,7 @@ export interface Direccion extends Timestamps {
   numeracion: string | null;
   referencia: string | null;
   casaDepto: string | null;
-  localidadId: number;
-  localidad?: Localidad;
+  lat: number | null;
+  lng: number | null;
+  etiqueta: string | null;
 }

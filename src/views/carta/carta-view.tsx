@@ -450,16 +450,24 @@ function PlatoDialog({
             </div>
 
             {/* Ingredientes */}
-            {articulos.length > 0 && (
-              <div className="space-y-2">
-                <Label>Ingredientes del stock</Label>
+            <div className="space-y-2">
+              <Label>Ingredientes del stock</Label>
+              {articulos.length === 0 ? (
+                <p className="text-muted-foreground rounded-md border border-dashed px-3 py-4 text-center text-sm">
+                  Aún no hay artículos en stock.{" "}
+                  <a href="/stock" className="underline underline-offset-2">
+                    Agregá artículos en Stock
+                  </a>{" "}
+                  para poder asignarles ingredientes a los platos.
+                </p>
+              ) : (
                 <IngredientesPicker
                   value={ingredientes}
                   onChange={setIngredientes}
                   articulos={articulos}
                 />
-              </div>
-            )}
+              )}
+            </div>
 
             {/* Imagen */}
             <div className="space-y-2">
@@ -583,11 +591,6 @@ function PlatoCard({
             {plato.detalle && (
               <p className="text-muted-foreground mt-0.5 line-clamp-2 text-xs">
                 {plato.detalle}
-              </p>
-            )}
-            {plato.ingredientes && plato.ingredientes.length > 0 && (
-              <p className="text-muted-foreground mt-0.5 text-xs">
-                {plato.ingredientes.map((i) => i.nombre).join(", ")}
               </p>
             )}
           </div>

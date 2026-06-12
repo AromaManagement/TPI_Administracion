@@ -1,7 +1,6 @@
 import {
   LayoutDashboard,
   Users,
-  MapPin,
   UtensilsCrossed,
   Boxes,
   Truck,
@@ -34,14 +33,6 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/usuarios",
     icon: Users,
     description: "ABM de administradores y cocineros.",
-    status: "ready",
-    group: "Administración",
-  },
-  {
-    title: "Localidades",
-    href: "/localidades",
-    icon: MapPin,
-    description: "Localidades para direcciones de entrega.",
     status: "ready",
     group: "Administración",
   },

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { PlusIcon, ArrowUpDownIcon, ClockIcon, PencilIcon, Trash2Icon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -61,7 +61,6 @@ function today() {
 type ArticuloForm = {
   nombre: string;
   descripcion: string;
-  esIngrediente: boolean;
   unidadMedida: UnidadMedida | "";
   cantidadInicial: string;
   minimo: string;
@@ -70,7 +69,6 @@ type ArticuloForm = {
 const EMPTY_FORM: ArticuloForm = {
   nombre: "",
   descripcion: "",
-  esIngrediente: false,
   unidadMedida: "",
   cantidadInicial: "0",
   minimo: "",
@@ -95,13 +93,21 @@ function ArticuloDialog({
       ? {
           nombre: articulo.nombre,
           descripcion: articulo.descripcion ?? "",
-          esIngrediente: articulo.esIngrediente,
           unidadMedida: articulo.unidadMedida ?? "",
           cantidadInicial: "0",
           minimo: articulo.minimo?.toString() ?? "",
         }
       : EMPTY_FORM
   );
+
+  useEffect(() => {
+    if (open) {
+      setForm(articulo
+        ? { nombre: articulo.nombre, descripcion: articulo.descripcion ?? "", unidadMedida: articulo.unidadMedida ?? "", cantidadInicial: "0", minimo: articulo.minimo?.toString() ?? "" }
+        : EMPTY_FORM
+      );
+    }
+  }, [open]);
 
   function set(k: keyof ArticuloForm, v: ArticuloForm[keyof ArticuloForm]) {
     setForm((prev) => ({ ...prev, [k]: v }));
@@ -148,39 +154,21 @@ function ArticuloDialog({
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1.5">
-                <Label>Tipo</Label>
-                <Select
-                  value={form.esIngrediente ? "ingrediente" : "producto"}
-                  onValueChange={(v) => set("esIngrediente", v === "ingrediente")}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ingrediente">Ingrediente</SelectItem>
-                    <SelectItem value="producto">Producto</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <Label>Unidad de medida</Label>
-                <Select
-                  value={form.unidadMedida}
-                  onValueChange={(v) => set("unidadMedida", v as UnidadMedida)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(UNIDADES_MEDIDA).map(([k, label]) => (
-                      <SelectItem key={k} value={k}>{label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Unidad de medida</Label>
+              <Select
+                value={form.unidadMedida}
+                onValueChange={(v) => set("unidadMedida", v as UnidadMedida)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(UNIDADES_MEDIDA).map(([k, label]) => (
+                    <SelectItem key={k} value={k}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -433,13 +421,13 @@ export function StockView({ initial }: { initial: ArticuloStock[] }) {
       setArticulos((prev) =>
         prev.map((a) =>
           a.id === target.id
-            ? { ...a, nombre: form.nombre.trim(), descripcion: form.descripcion || null, esIngrediente: form.esIngrediente, unidadMedida, minimo }
+            ? { ...a, nombre: form.nombre.trim(), descripcion: form.descripcion || null, esIngrediente: true, unidadMedida, minimo }
             : a
         ).sort((a, b) => a.nombre.localeCompare(b.nombre, "es"))
       );
       close();
       startTransition(async () => {
-        await updateArticulo(target.id, { nombre: form.nombre.trim(), descripcion: form.descripcion || null, esIngrediente: form.esIngrediente, unidadMedida, minimo });
+        await updateArticulo(target.id, { nombre: form.nombre.trim(), descripcion: form.descripcion || null, esIngrediente: true, unidadMedida, minimo });
       });
     } else {
       // Optimistic create
@@ -448,7 +436,7 @@ export function StockView({ initial }: { initial: ArticuloStock[] }) {
         id: tempId,
         nombre: form.nombre.trim(),
         descripcion: form.descripcion || null,
-        esIngrediente: form.esIngrediente,
+        esIngrediente: true,
         unidadMedida,
         stockId: 0,
         cantidad: cantidadInicial,
@@ -461,7 +449,7 @@ export function StockView({ initial }: { initial: ArticuloStock[] }) {
       setArticulos((prev) => [...prev, newArt].sort((a, b) => a.nombre.localeCompare(b.nombre, "es")));
       close();
       startTransition(async () => {
-        const fresh = await createArticulo({ nombre: form.nombre.trim(), descripcion: form.descripcion || null, esIngrediente: form.esIngrediente, unidadMedida, cantidadInicial, minimo });
+        const fresh = await createArticulo({ nombre: form.nombre.trim(), descripcion: form.descripcion || null, esIngrediente: true, unidadMedida, cantidadInicial, minimo });
         setArticulos((prev) =>
           prev.map((a) => (a.id === tempId ? fresh : a)).sort((a, b) => a.nombre.localeCompare(b.nombre, "es"))
         );
@@ -519,7 +507,6 @@ export function StockView({ initial }: { initial: ArticuloStock[] }) {
           <TableHeader>
             <TableRow>
               <TableHead>Artículo</TableHead>
-              <TableHead>Tipo</TableHead>
               <TableHead>Unidad</TableHead>
               <TableHead className="text-right">Existencia</TableHead>
               <TableHead className="text-right">Mínimo</TableHead>
@@ -530,7 +517,7 @@ export function StockView({ initial }: { initial: ArticuloStock[] }) {
           <TableBody>
             {articulos.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-muted-foreground py-10 text-center text-sm">
+                <TableCell colSpan={6} className="text-muted-foreground py-10 text-center text-sm">
                   Sin artículos. Creá uno con el botón de arriba.
                 </TableCell>
               </TableRow>
@@ -544,11 +531,6 @@ export function StockView({ initial }: { initial: ArticuloStock[] }) {
                       {art.descripcion && (
                         <p className="text-muted-foreground text-xs">{art.descripcion}</p>
                       )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={art.esIngrediente ? "outline" : "secondary"}>
-                        {art.esIngrediente ? "Ingrediente" : "Producto"}
-                      </Badge>
                     </TableCell>
                     <TableCell className="text-sm">
                       {art.unidadMedida ? UNIDADES_MEDIDA[art.unidadMedida] : "—"}
